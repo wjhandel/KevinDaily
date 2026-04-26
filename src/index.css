@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+
+  --color-primary: #874e00;
+  --color-primary-container: #ff9800;
+  --color-on-primary: #fff0e5;
+  
+  --color-secondary: #006573;
+  --color-secondary-container: #54e3fc;
+  --color-on-secondary: #daf8ff;
+  
+  --color-tertiary: #9720ab;
+  --color-tertiary-container: #f288ff;
+  --color-on-tertiary: #ffeefb;
+
+  --color-surface-low: #eff1f2;
+  --color-surface-lowest: #ffffff;
+}
+
+@layer base {
+  body {
+    @apply bg-[#f5f6f7] text-[#2c2f30] antialiased font-sans;
+  }
+}
+
+.glass-header {
+  @apply sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-none;
+}
+
+.bento-card {
+  @apply bg-surface-lowest rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border-none transition-all duration-300;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* 预留自然拼读高亮样式接口 */
+.phonics-highlight {
+  /* color: #FF6B6B; */
+}
