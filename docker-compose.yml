@@ -1,39 +1,25 @@
 version: '3.8'
 
 services:
-  # KevinDaily React App
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: kevin-daily-web
     ports:
       - "3000:3000"
     environment:
       - VITE_PB_URL=${VITE_PB_URL:-http://localhost:8090}
     restart: unless-stopped
-    networks:
-      - kevin-network
 
-  # PocketBase Database
   pocketbase:
-    image: ghcr.io/machine13454/pocketbase:v6
+    image: pocketbase/pocketbase:v6
     container_name: kevin-daily-db
     ports:
       - "8090:8090"
     volumes:
       - pb_data:/pb_data
-      - pb_migrations:/pb_migrations
+      - ./pb/pb_migrations:/pb_migrations:ro
+    command: ["--dir", "/pb/pb_data", "--migrations-dir", "/pb_migrations"]
     restart: unless-stopped
-    networks:
-      - kevin-network
-
-networks:
-  kevin-network:
-    driver: bridge
 
 volumes:
   pb_data:
-    driver: local
-  pb_migrations:
-    driver: local
