@@ -77,13 +77,17 @@ const PRESET_COLORS = [
 ];
 
 export default function TaskLibrary() {
-  const { tasks, setTasks } = useTasks();
+  const { tasks, addTask, updateTask, removeTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
   const [currentTask, setCurrentTask] = useState<Partial<Task>>({});
   const [filterCategory, setFilterCategory] = useState<string>('全部');
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   const toggleActive = (id: string, active: boolean) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, active } : t));
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+      updateTask({ ...task, active });
+    }
   };
 
   const handleEdit = (task: Task) => {
@@ -109,9 +113,18 @@ export default function TaskLibrary() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('确定要删除这个任务吗？')) {
-      setTasks(tasks.filter(t => t.id !== id));
+    setDeletingTaskId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deletingTaskId) {
+      removeTask(deletingTaskId);
+      setDeletingTaskId(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setDeletingTaskId(null);
   };
 
   const handleSave = () => {
@@ -119,17 +132,11 @@ export default function TaskLibrary() {
       alert('请输入任务名称');
       return;
     }
-    
+
     if (currentTask.id) {
-      // Update
-      setTasks(tasks.map(t => t.id === currentTask.id ? { ...t, ...currentTask } as Task : t));
+      updateTask(currentTask as Task);
     } else {
-      // Add
-      const newTask = {
-        ...currentTask,
-        id: Math.random().toString(36).substr(2, 9),
-      } as Task;
-      setTasks([...tasks, newTask]);
+      addTask(currentTask as Omit<Task, 'id'>);
     }
     setIsEditing(false);
   };
@@ -177,13 +184,32 @@ export default function TaskLibrary() {
               >
                 <Edit2 size={14} />
               </button>
-              <button 
-                onClick={() => handleDelete(task.id)}
-                className="p-1.5 bg-white shadow-md border border-stone-100 text-stone-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
-                title="删除"
-              >
-                <Trash2 size={14} />
-              </button>
+              {deletingTaskId === task.id ? (
+                <div className="flex gap-1 items-center bg-white shadow-md border border-red-200 rounded-full p-1">
+                  <button 
+                    onClick={confirmDelete}
+                    className="p-1 text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                    title="确认删除"
+                  >
+                    <CheckCircle2 size={14} />
+                  </button>
+                  <button 
+                    onClick={cancelDelete}
+                    className="p-1 text-stone-400 hover:bg-stone-50 rounded-full transition-colors"
+                    title="取消"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => handleDelete(task.id)}
+                  className="p-1.5 bg-white shadow-md border border-stone-100 text-stone-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
+                  title="删除"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
 
             <div className="flex gap-3 mb-2">
@@ -234,7 +260,14 @@ export default function TaskLibrary() {
                 </div>
                 <div className="lg:hidden flex gap-1">
                   <button onClick={() => handleEdit(task)} className="p-1 text-stone-400"><Edit2 size={12} /></button>
-                  <button onClick={() => handleDelete(task.id)} className="p-1 text-stone-400"><Trash2 size={12} /></button>
+                  {deletingTaskId === task.id ? (
+                    <>
+                      <button onClick={confirmDelete} className="p-1 text-red-500"><CheckCircle2 size={12} /></button>
+                      <button onClick={cancelDelete} className="p-1 text-stone-400"><X size={12} /></button>
+                    </>
+                  ) : (
+                    <button onClick={() => handleDelete(task.id)} className="p-1 text-stone-400"><Trash2 size={12} /></button>
+                  )}
                 </div>
               </div>
             </div>
@@ -396,6 +429,37 @@ export default function TaskLibrary() {
                       ))}
                     </div>
                   </div>
+
+                  {currentTask.recurrence === 'quick' && (
+                    <div className="space-y-4">
+                      <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest">次数限制</label>
+                      <div className="flex gap-4 items-center">
+                        <select
+                          value={currentTask.limitType || 'none'}
+                          onChange={e => setCurrentTask({...currentTask, limitType: e.target.value as any})}
+                          className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-2 text-stone-800 font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                        >
+                          <option value="none">无限制</option>
+                          <option value="daily">每日限制</option>
+                          <option value="weekly">每周限制</option>
+                        </select>
+                        {currentTask.limitType !== 'none' && (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={currentTask.limitCount || 1}
+                              onChange={e => setCurrentTask({...currentTask, limitCount: parseInt(e.target.value) || 1})}
+                              className="w-20 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-stone-800 font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                            />
+                            <span className="text-sm font-bold text-stone-600">
+                              {currentTask.limitType === 'daily' ? '次/天' : '次/周'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-4">
                     <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest">打卡要求</label>
