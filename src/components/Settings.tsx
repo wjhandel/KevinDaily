@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  Link, 
-  Smartphone, 
-  Tablet, 
-  Cloud, 
-  Verified, 
+import {
+  Link,
+  Smartphone,
+  Tablet,
+  Cloud,
+  Verified,
   Settings as SettingsIcon,
   Download,
   Plus,
@@ -23,41 +23,523 @@ import {
   Upload,
   Image,
   ShieldCheck,
-  BookOpen
+  BookOpen,
+  MinusCircle,
+  Trash2,
+  Clock,
+  AlertTriangle,
+  Flame,
+  XCircle,
+  Medal,
+  Award,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTasks } from '../TaskContext';
 import { useState } from 'react';
+import { getIconComponent } from '../lib/icons';
 
-type SettingsModule = 'main' | 'profile' | 'wishes' | 'invitation' | 'gift' | 'articles';
+type SettingsModule = 'main' | 'profile' | 'wishes' | 'invitation' | 'gift' | 'articles' | 'deduction' | 'badges';
 
 export default function Settings() {
-  const { 
-    childProfile, 
-    updateChildProfile, 
-    weeklyGiftConfig, 
-    setWeeklyGiftConfig, 
-    rewards, 
-    updateReward, 
-    addReward, 
+  const {
+    childProfile,
+    updateChildProfile,
+    weeklyGiftConfig,
+    setWeeklyGiftConfig,
+    rewards,
+    updateReward,
+    addReward,
     removeReward,
     invitationCodes,
     generateInvitationCode,
     systemSettings,
     updateSystemSettings,
     articles,
-    removeArticle
+    removeArticle,
+    deductionItems,
+    updateDeductionItem,
+    addDeductionItem,
+    removeDeductionItem,
+    badges,
+    updateBadge,
+    deleteBadge,
+    grantBadge,
+    revokeBadge,
+    childBadges,
+    checkAndGrantBadges,
+    tasks,
   } = useTasks();
+  if (!childProfile) return null;
   const [activeModule, setActiveModule] = useState<SettingsModule>('main');
   const [editProfile, setEditProfile] = useState(childProfile);
   const [isSaved, setIsSaved] = useState(false);
   const [editingReward, setEditingReward] = useState<any | null>(null);
   const [inviteConfig, setInviteConfig] = useState({ maxUses: 1, expiryDays: 7 });
+  const [editingDeduction, setEditingDeduction] = useState<any | null>(null);
+  const [isAddingDeduction, setIsAddingDeduction] = useState(false);
+  const [editingBadge, setEditingBadge] = useState<any | null>(null);
+  const [isAddingBadge, setIsAddingBadge] = useState(false);
+
+  const badgeColors = [
+    { color: 'bg-orange-500', iconColor: 'text-orange-500', name: '橙色' },
+    { color: 'bg-blue-500', iconColor: 'text-blue-500', name: '蓝色' },
+    { color: 'bg-yellow-500', iconColor: 'text-yellow-500', name: '黄色' },
+    { color: 'bg-green-500', iconColor: 'text-green-500', name: '绿色' },
+    { color: 'bg-red-500', iconColor: 'text-red-500', name: '红色' },
+    { color: 'bg-purple-500', iconColor: 'text-purple-500', name: '紫色' },
+    { color: 'bg-pink-500', iconColor: 'text-pink-500', name: '粉色' },
+    { color: 'bg-cyan-500', iconColor: 'text-cyan-500', name: '青色' },
+    { color: 'bg-indigo-500', iconColor: 'text-indigo-500', name: '靛蓝' },
+    { color: 'bg-emerald-500', iconColor: 'text-emerald-500', name: '翠绿' },
+    { color: 'bg-amber-500', iconColor: 'text-amber-500', name: '琥珀' },
+    { color: 'bg-teal-500', iconColor: 'text-teal-500', name: '青色' },
+  ];
+
+  const badgeIcons = [
+    { icon: 'Flame', name: '火焰' },
+    { icon: 'BookOpen', name: '阅读' },
+    { icon: 'Trophy', name: '奖杯' },
+    { icon: 'Calculator', name: '计算' },
+    { icon: 'Dumbbell', name: '运动' },
+    { icon: 'Home', name: '家务' },
+    { icon: 'Brush', name: '绘画' },
+    { icon: 'GraduationCap', name: '学习' },
+    { icon: 'CheckCircle', name: '完成' },
+    { icon: 'Award', name: '勋章' },
+    { icon: 'Star', name: '星星' },
+    { icon: 'Activity', name: '活力' },
+  ];
+
+  const conditionTypes = [
+    { value: 'total_points', label: '累计积分达到', desc: '当孩子累计获得的积分达到指定数量时授予' },
+    { value: 'consecutive_days', label: '连续打卡天数', desc: '当孩子连续打卡达到指定天数时授予' },
+    { value: 'total_submissions', label: '累计完成任务数', desc: '当孩子累计完成（审核通过）的任务数达到指定数量时授予' },
+    { value: 'task_category_count', label: '完成任务类别数', desc: '当孩子完成指定数量的不同类别任务时授予' },
+    { value: 'all_task_types', label: '完成所有任务类型', desc: '当孩子完成所有类型的任务时授予' },
+    { value: 'task_completion_count', label: '完成指定任务数量', desc: '当孩子完成指定任务的次数达到要求时授予' },
+  ];
 
   const handleSaveProfile = () => {
     updateChildProfile(editProfile);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
+  };
+
+  const deductionColors = [
+    { color: 'bg-orange-100', iconColor: 'text-orange-600' },
+    { color: 'bg-red-100', iconColor: 'text-red-600' },
+    { color: 'bg-rose-100', iconColor: 'text-rose-600' },
+    { color: 'bg-yellow-100', iconColor: 'text-yellow-600' },
+    { color: 'bg-green-100', iconColor: 'text-green-600' },
+    { color: 'bg-blue-100', iconColor: 'text-blue-600' },
+    { color: 'bg-purple-100', iconColor: 'text-purple-600' },
+    { color: 'bg-pink-100', iconColor: 'text-pink-600' },
+  ];
+
+  const deductionIcons = [
+    { icon: AlertTriangle, name: 'AlertTriangle' },
+    { icon: XCircle, name: 'XCircle' },
+    { icon: MinusCircle, name: 'MinusCircle' },
+    { icon: Clock, name: 'Clock' },
+    { icon: Trash2, name: 'Trash2' },
+    { icon: Flame, name: 'Flame' },
+  ];
+
+  const getIconByName = (name: string) => {
+    const found = deductionIcons.find(i => i.name === name);
+    return found ? found.icon : AlertTriangle;
+  };
+
+  const renderDeductionModal = () => {
+    const isEditing = !!editingDeduction?.id;
+    const defaultDeduction = {
+      id: '',
+      title: '',
+      amount: 5,
+      icon: AlertTriangle,
+      iconColor: 'text-orange-600',
+      color: 'bg-orange-100',
+    };
+    const current = editingDeduction || defaultDeduction;
+
+    return (
+      <AnimatePresence>
+        {(editingDeduction || isAddingDeduction) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-8 pb-4 flex justify-between items-start">
+                <div>
+                  <h3 className="text-2xl font-black text-stone-800 font-display tracking-tight mb-1">
+                    {isEditing ? '编辑扣分项' : '新增扣分项'}
+                  </h3>
+                  <p className="text-xs text-stone-400 font-bold uppercase tracking-widest">
+                    {isEditing ? `正在编辑：${editingDeduction.title}` : '创建新的扣分项目'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingDeduction(null);
+                    setIsAddingDeduction(false);
+                  }}
+                  className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 hover:bg-stone-200 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-5 overflow-y-auto max-h-[70vh] no-scrollbar">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">扣分项名称</label>
+                  <input
+                    type="text"
+                    value={current.title}
+                    onChange={(e) => setEditingDeduction({ ...current, title: e.target.value })}
+                    placeholder="例如：超时未完成"
+                    className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-6 py-4 font-bold text-stone-800 transition-all outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">扣分数值</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={current.amount}
+                      onChange={(e) => setEditingDeduction({ ...current, amount: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-6 py-4 pl-12 font-bold text-stone-800 transition-all outline-none"
+                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 font-bold text-sm">-</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">选择颜色</label>
+                  <div className="flex flex-wrap gap-2">
+                    {deductionColors.map((c, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setEditingDeduction({ ...current, color: c.color, iconColor: c.iconColor })}
+                        className={`w-10 h-10 ${c.color} rounded-xl flex items-center justify-center transition-all ${current.color === c.color ? 'ring-2 ring-offset-2 ring-stone-400' : ''}`}
+                      >
+                        <div className={`w-5 h-5 ${c.color.replace('bg-', 'bg-')} rounded-full`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">选择图标</label>
+                  <div className="flex flex-wrap gap-2">
+                    {deductionIcons.map((ic, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setEditingDeduction({ ...current, icon: ic.icon, iconName: ic.name })}
+                        className={`w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center transition-all ${current.icon === ic.icon ? 'ring-2 ring-offset-2 ring-primary bg-primary/10' : 'hover:bg-stone-200'}`}
+                      >
+                        <ic.icon size={20} className={current.iconColor} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">每周限制</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        value={current.weeklyLimit ?? ''}
+                        onChange={(e) => setEditingDeduction({ ...current, weeklyLimit: e.target.value ? parseInt(e.target.value) : undefined })}
+                        placeholder="不限制"
+                        className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-6 py-4 font-bold text-stone-800 transition-all outline-none"
+                      />
+                    </div>
+                    <p className="text-[10px] text-stone-400 ml-1">留空则不限制</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">每天限制</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        value={current.dailyLimit ?? ''}
+                        onChange={(e) => setEditingDeduction({ ...current, dailyLimit: e.target.value ? parseInt(e.target.value) : undefined })}
+                        placeholder="不限制"
+                        className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-6 py-4 font-bold text-stone-800 transition-all outline-none"
+                      />
+                    </div>
+                    <p className="text-[10px] text-stone-400 ml-1">留空则不限制</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 p-8 pt-4">
+                <button
+                  onClick={() => {
+                    setEditingDeduction(null);
+                    setIsAddingDeduction(false);
+                  }}
+                  className="flex-1 py-4 bg-stone-100 text-stone-400 font-black rounded-2xl hover:bg-stone-200 transition-all uppercase tracking-widest text-xs"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    if (!current.title.trim()) {
+                      alert('请输入扣分项名称');
+                      return;
+                    }
+                    if (current.amount <= 0) {
+                      alert('扣分数值必须大于0');
+                      return;
+                    }
+                    const itemToSave = {
+                      ...current,
+                      icon: typeof current.icon === 'string' ? getIconByName(current.icon) : current.icon,
+                    };
+                    if (isEditing) {
+                      updateDeductionItem(itemToSave);
+                    } else {
+                      addDeductionItem(itemToSave);
+                    }
+                    setEditingDeduction(null);
+                    setIsAddingDeduction(false);
+                  }}
+                  className="flex-[2] py-4 bg-red-500 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-xs"
+                >
+                  保存
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  };
+
+  const renderBadgeModal = () => {
+    const isNewBadge = !editingBadge?.id;
+    const defaultBadge = {
+      id: '',
+      name: '',
+      icon: 'Star',
+      color: 'bg-yellow-500',
+      iconColor: 'text-yellow-500',
+      description: '',
+      condition_type: 'total_points',
+      condition_value: 100,
+      isActive: true,
+    };
+    const current = editingBadge || defaultBadge;
+
+    return (
+      <AnimatePresence>
+        {editingBadge && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 pb-4 flex justify-between items-start">
+                <div>
+                  <h3 className="text-2xl font-black text-stone-800 font-display tracking-tight mb-1">
+                    {isNewBadge ? '新增勋章' : '编辑勋章'}
+                  </h3>
+                  <p className="text-xs text-stone-400 font-bold uppercase tracking-widest">
+                    {isNewBadge ? '创建新的成就勋章' : `正在编辑：${editingBadge.name}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingBadge(null);
+                    setIsAddingBadge(false);
+                  }}
+                  className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 hover:bg-stone-200 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-5 overflow-y-auto no-scrollbar">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">勋章名称</label>
+                  <input
+                    type="text"
+                    value={current.name}
+                    onChange={(e) => setEditingBadge({ ...current, name: e.target.value })}
+                    placeholder="例如：阅读之星"
+                    className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-6 py-4 font-bold text-stone-800 transition-all outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">勋章描述</label>
+                  <input
+                    type="text"
+                    value={current.description}
+                    onChange={(e) => setEditingBadge({ ...current, description: e.target.value })}
+                    placeholder="例如：累计阅读 100 页"
+                    className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-6 py-4 font-bold text-stone-800 transition-all outline-none"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">选择图标</label>
+                  <div className="flex flex-wrap gap-2">
+                    {badgeIcons.map((ic) => {
+                      const IconComp = getIconComponent(ic.icon);
+                      return (
+                        <button
+                          key={ic.icon}
+                          onClick={() => {
+                            const selectedColor = badgeColors.find(c => c.color === current.color) || badgeColors[0];
+                            setEditingBadge({
+                              ...current,
+                              icon: ic.icon,
+                              iconColor: selectedColor.iconColor,
+                            });
+                          }}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${current.icon === ic.icon ? 'ring-2 ring-offset-2 ring-primary bg-primary/10' : 'bg-stone-100 hover:bg-stone-200'}`}
+                        >
+                          <IconComp size={20} className={current.iconColor} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">选择颜色</label>
+                  <div className="flex flex-wrap gap-2">
+                    {badgeColors.map((c) => (
+                      <button
+                        key={c.name}
+                        onClick={() => setEditingBadge({ ...current, color: c.color, iconColor: c.iconColor })}
+                        className={`w-8 h-8 ${c.color} rounded-lg flex items-center justify-center transition-all ${current.color === c.color ? 'ring-2 ring-offset-2 ring-stone-400 scale-110' : 'hover:scale-105'}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">获得条件</label>
+                  <select
+                    value={current.condition_type}
+                    onChange={(e) => setEditingBadge({ ...current, condition_type: e.target.value })}
+                    className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-4 py-4 font-bold text-stone-800 transition-all outline-none text-sm"
+                  >
+                    {conditionTypes.map((ct) => (
+                      <option key={ct.value} value={ct.value}>{ct.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-stone-400 ml-1">
+                    {conditionTypes.find(ct => ct.value === current.condition_type)?.desc}
+                  </p>
+                </div>
+
+                {current.condition_type !== 'all_task_types' && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">条件数值</label>
+                    <input
+                      type="number"
+                      value={current.condition_value}
+                      onChange={(e) => setEditingBadge({ ...current, condition_value: parseInt(e.target.value) || 0 })}
+                      min="1"
+                      className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-6 py-4 font-bold text-stone-800 transition-all outline-none"
+                    />
+                  </div>
+                )}
+
+                {current.condition_type === 'task_completion_count' && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">选择任务</label>
+                    <select
+                      value={current.target_task_id || ''}
+                      onChange={(e) => setEditingBadge({ ...current, target_task_id: e.target.value || undefined })}
+                      className="w-full bg-stone-50 border-2 border-transparent focus:border-primary rounded-2xl px-4 py-4 font-bold text-stone-800 transition-all outline-none text-sm"
+                    >
+                      <option value="">请选择任务...</option>
+                      {tasks.filter(t => t.active).map(task => (
+                        <option key={task.id} value={task.id}>
+                          {task.iconName && <span className="mr-2">{getIconComponent(task.iconName)}</span>}
+                          {task.title}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-stone-400 ml-1">
+                      选择后，勋章将根据该任务被完成的次数来授予
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-2xl">
+                  <button
+                    onClick={() => setEditingBadge({ ...current, isActive: !current.isActive })}
+                    className={`w-12 h-7 rounded-full relative transition-all ${current.isActive ? 'bg-emerald-500' : 'bg-stone-300'}`}
+                  >
+                    <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-all ${current.isActive ? 'left-[26px]' : 'left-0.5'}`} />
+                  </button>
+                  <div>
+                    <p className="font-bold text-sm text-stone-800">启用自动授予</p>
+                    <p className="text-[10px] text-stone-400">关闭后需手动授予勋章</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 p-8 pt-4">
+                <button
+                  onClick={() => {
+                    setEditingBadge(null);
+                    setIsAddingBadge(false);
+                  }}
+                  className="flex-1 py-4 bg-stone-100 text-stone-400 font-black rounded-2xl hover:bg-stone-200 transition-all uppercase tracking-widest text-xs"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    if (!current.name.trim()) {
+                      alert('请输入勋章名称');
+                      return;
+                    }
+                    if (!current.description.trim()) {
+                      alert('请输入勋章描述');
+                      return;
+                    }
+                    updateBadge(current);
+                    setEditingBadge(null);
+                    setIsAddingBadge(false);
+                  }}
+                  className="flex-[2] py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-xs"
+                >
+                  保存勋章
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
   };
 
   const renderEditRewardModal = () => (
@@ -319,7 +801,7 @@ export default function Settings() {
         </motion.div>
 
         {/* AI Articles Card */}
-        <motion.div 
+        <motion.div
           onClick={() => setActiveModule('articles')}
           whileHover={{ y: -4 }}
           className="bento-card p-8 flex flex-col gap-6 cursor-pointer group relative overflow-hidden md:col-span-2"
@@ -330,6 +812,38 @@ export default function Settings() {
           <div className="space-y-2">
             <h2 className="font-black text-xl font-display text-stone-800">短文阅读管理</h2>
             <p className="text-stone-400 text-xs font-bold leading-relaxed italic">管理已发布的AI生成的英语短文。</p>
+          </div>
+          <ChevronRight size={20} className="text-stone-300 mt-auto ml-auto" />
+        </motion.div>
+
+        {/* Deduction Items Card */}
+        <motion.div
+          onClick={() => setActiveModule('deduction')}
+          whileHover={{ y: -4 }}
+          className="bento-card p-8 flex flex-col gap-6 cursor-pointer group relative overflow-hidden"
+        >
+          <div className="absolute top-6 right-6 w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600 transition-transform group-hover:scale-110">
+            <MinusCircle size={24} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-black text-xl font-display text-stone-800">扣分项目管理</h2>
+            <p className="text-stone-400 text-xs font-bold leading-relaxed italic">管理快速扣分的项目和数值。</p>
+          </div>
+          <ChevronRight size={20} className="text-stone-300 mt-auto ml-auto" />
+        </motion.div>
+
+        {/* Badge Management Card */}
+        <motion.div
+          onClick={() => setActiveModule('badges')}
+          whileHover={{ y: -4 }}
+          className="bento-card p-8 flex flex-col gap-6 cursor-pointer group relative overflow-hidden"
+        >
+          <div className="absolute top-6 right-6 w-12 h-12 bg-yellow-100 rounded-2xl flex items-center justify-center text-yellow-600 transition-transform group-hover:scale-110">
+            <Medal size={24} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-black text-xl font-display text-stone-800">勋章成就管理</h2>
+            <p className="text-stone-400 text-xs font-bold leading-relaxed italic">管理勋章名称、获得条件与自动授予规则。</p>
           </div>
           <ChevronRight size={20} className="text-stone-300 mt-auto ml-auto" />
         </motion.div>
@@ -473,7 +987,7 @@ export default function Settings() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {rewards.map((reward) => (
+                {rewards.filter(r => r.status !== 'pending' && r.status !== 'redeeming').map((reward) => (
                   <div key={reward.id} className="bento-card overflow-hidden flex flex-col group border-2 border-transparent hover:border-primary/20">
                     <div className="h-44 overflow-hidden relative">
                       <img 
@@ -776,9 +1290,189 @@ export default function Settings() {
               </div>
             </div>
           </motion.div>
+        ) : activeModule === 'deduction' ? (
+          <motion.div key="deduction" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+            {renderModuleHeader('扣分项目管理', <MinusCircle size={20} />)}
+            <div className="space-y-6">
+              <div className="flex justify-between items-end mb-4">
+                <p className="text-stone-400 text-sm font-medium italic">管理快速扣分的项目和扣分数值。</p>
+                <button
+                  onClick={() => setIsAddingDeduction(true)}
+                  className="bg-primary text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                >
+                  <Plus size={18} />
+                  新增扣分项
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {deductionItems.map(item => (
+                  <div key={item.id} className="bento-card p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`w-12 h-12 ${item.color} rounded-2xl flex items-center justify-center`}>
+                        <item.icon size={24} className={item.iconColor} />
+                      </div>
+                      <button
+                        onClick={() => removeDeductionItem(item.id)}
+                        className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-400 hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <h3 className="font-black text-lg text-stone-800 font-display mb-2">{item.title}</h3>
+                    <div className="flex items-center gap-2 mt-auto">
+                      <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">扣分</span>
+                      <span className={`font-black text-2xl ${item.iconColor}`}>-{item.amount}</span>
+                    </div>
+                    <button
+                      onClick={() => setEditingDeduction(item)}
+                      className="mt-4 w-full py-3 bg-surface-low rounded-xl font-bold text-xs text-stone-500 hover:bg-stone-200 transition-colors"
+                    >
+                      编辑
+                    </button>
+                  </div>
+                ))}
+
+                {deductionItems.length === 0 && (
+                  <div className="col-span-full py-12 flex flex-col items-center justify-center bg-surface-low rounded-[2rem] border border-stone-100 border-dashed">
+                    <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center text-stone-400 mb-4">
+                      <MinusCircle size={24} />
+                    </div>
+                    <p className="text-stone-400 font-bold text-sm">暂无扣分项目</p>
+                    <p className="text-stone-300 font-medium text-xs mt-1">点击上方按钮新增扣分项</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        ) : activeModule === 'badges' ? (
+          <motion.div key="badges" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+            {renderModuleHeader('勋章成就管理', <Medal size={20} />)}
+            <div className="space-y-6">
+              <div className="flex justify-between items-end mb-4">
+                <div>
+                  <p className="text-stone-400 text-sm font-medium italic">管理勋章的显示名称、获得条件与自动授予规则。</p>
+                  <div className="mt-2 flex gap-4">
+                    <button
+                      onClick={() => checkAndGrantBadges()}
+                      className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Award size={14} />
+                      手动检查并授予勋章
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingBadge({
+                    id: '',
+                    name: '',
+                    icon: 'Star',
+                    color: 'bg-yellow-500',
+                    iconColor: 'text-yellow-500',
+                    description: '',
+                    condition_type: 'total_points',
+                    condition_value: 100,
+                    isActive: true,
+                  }, true)}
+                  className="bg-primary text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                >
+                  <Plus size={18} />
+                  新增勋章
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {badges.map(badge => {
+                  const earned = childBadges.find(cb => cb.badge === badge.id);
+                  const IconComp = getIconComponent(badge.icon);
+                  const condition = conditionTypes.find(c => c.value === badge.condition_type);
+                  return (
+                    <div key={badge.id} className={`bento-card p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all ${!badge.isActive ? 'opacity-50' : ''}`}>
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`w-14 h-14 ${badge.color} rounded-2xl flex items-center justify-center shadow-lg`}>
+                          <IconComp size={28} className="text-white" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              updateBadge({ ...badge, isActive: !badge.isActive });
+                            }}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${badge.isActive ? 'bg-emerald-100 text-emerald-600' : 'bg-stone-100 text-stone-400'}`}
+                          >
+                            {badge.isActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm('确认删除这个勋章吗？')) {
+                                deleteBadge(badge.id);
+                              }
+                            }}
+                            className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-400 hover:bg-red-100 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <h3 className="font-black text-lg text-stone-800 font-display mb-1">{badge.name}</h3>
+                      <p className="text-[10px] text-stone-400 font-medium mb-4 leading-relaxed">{badge.description}</p>
+                      <div className="mt-auto space-y-2">
+                        <div className="bg-surface-low rounded-xl p-3">
+                          <p className="text-[9px] text-stone-500 font-bold uppercase tracking-tight">
+                            {condition?.label || badge.condition_type}: <span className="text-primary">{badge.condition_value}</span>
+                          </p>
+                        </div>
+                        {earned ? (
+                          <div className="bg-emerald-50 rounded-xl p-3 flex items-center gap-2">
+                            <Check size={14} className="text-emerald-500" />
+                            <span className="text-[10px] text-emerald-600 font-bold">已获得</span>
+                            <button
+                              onClick={() => {
+                                if (window.confirm('确认撤销这个勋章吗？')) {
+                                  revokeBadge(earned.id);
+                                }
+                              }}
+                              className="ml-auto text-[9px] text-stone-400 hover:text-red-500 transition-colors"
+                            >
+                              撤销
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => grantBadge(badge.id)}
+                              className="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold text-xs hover:bg-primary/90 transition-colors"
+                            >
+                              手动授予
+                            </button>
+                            <button
+                              onClick={() => setEditingBadge(badge, false)}
+                              className="flex-1 py-2.5 bg-surface-low rounded-xl font-bold text-xs text-stone-500 hover:bg-stone-200 transition-colors"
+                            >
+                              编辑
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {badges.length === 0 && (
+                  <div className="col-span-full py-12 flex flex-col items-center justify-center bg-surface-low rounded-[2rem] border border-stone-100 border-dashed">
+                    <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-400 mb-4">
+                      <Medal size={24} />
+                    </div>
+                    <p className="text-stone-400 font-bold text-sm">暂无勋章</p>
+                    <p className="text-stone-300 font-medium text-xs mt-1">点击上方按钮新增勋章</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
         ) : null}
       </AnimatePresence>
       {renderEditRewardModal()}
+      {renderDeductionModal()}
+      {renderBadgeModal()}
     </div>
   );
 }
