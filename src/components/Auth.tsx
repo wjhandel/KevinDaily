@@ -5,7 +5,7 @@ import { useTasks } from '../TaskContext';
 import { User, InvitationCode } from '../types';
 
 export default function Auth() {
-  const { registerUser, setCurrentUser, users, systemSettings } = useTasks();
+  const { setCurrentUser, systemSettings } = useTasks();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [invitationCode, setInvitationCode] = useState('');
   const [error, setError] = useState('');
@@ -21,15 +21,21 @@ export default function Auth() {
   const [loginAccount, setLoginAccount] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  const isFirstUser = users.length === 0;
+  // 从后端查询是否已有用户，决定默认模式
+  const [serverHasUsers, setServerHasUsers] = useState<boolean | null>(null);
+  React.useEffect(() => {
+    fetch('/api/kevindaily/has-users')
+      .then(r => r.json())
+      .then(data => setServerHasUsers(data.hasUsers === true))
+      .catch(() => setServerHasUsers(true)); // 查询失败时安全降级
+  }, []);
+
+  const isFirstUser = serverHasUsers === false;
   const currentMode = isFirstUser ? 'register' : mode;
 
   const handleAuth = async () => {
     setLoading(true);
     setError('');
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
 
     if (currentMode === 'register') {
       if (!regName || !regAccount || !regPassword) {
@@ -38,24 +44,64 @@ export default function Auth() {
         return;
       }
 
-      if (users.some(u => u.account === regAccount)) {
-        setError('该账号已被注册');
+      if (regPassword.length < 6) {
+        setError('密码至少 6 位');
         setLoading(false);
         return;
       }
 
-      const result = registerUser({
-        name: regName,
-        account: regAccount,
-        password: regPassword, // In a real app this would be hashed
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`,
-        role: isFirstUser ? 'parent' : regRole
-      }, invitationCode);
+      try {
+        const role = isFirstUser ? 'parent' : regRole;
+        const body: Record<string, any> = {
+          name: regName,
+          email: regAccount,
+          password: regPassword,
+          passwordConfirm: regPassword,
+          role: role,
+          isAdmin: isFirstUser,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
+        };
 
-      if (!result.success) {
-        setError(result.error || '注册失败');
-        setLoading(false);
-        return;
+        // 非首用户需要验证邀请码
+        if (!isFirstUser && invitationCode) {
+          body.account = invitationCode; // 暂存，后续通过 hook 验证
+        }
+
+        const res = await fetch('/api/collections/users/records', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (res.ok) {
+          const rec = await res.json();
+          setCurrentUser({
+            id: rec.id,
+            name: rec.name,
+            account: rec.email || regAccount,
+            avatar: rec.avatar,
+            role: rec.role || role,
+            isAdmin: rec.isAdmin || isFirstUser,
+            createdAt: rec.created || new Date().toISOString()
+          });
+          // 注册成功后自动登录获取 token
+          const authRes = await fetch('/api/collections/users/auth-with-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identity: regAccount, password: regPassword })
+          });
+          if (authRes.ok) {
+            const authData = await authRes.json();
+            localStorage.setItem('pb_token', authData.token);
+            localStorage.setItem('pb_user_id', authData.record.id);
+          }
+        } else {
+          const errData = await res.json();
+          const msg = errData?.data?.email?.message || errData?.message || '注册失败';
+          setError(msg);
+        }
+      } catch {
+        setError('网络连接失败，请检查服务是否启动');
       }
     } else {
       if (!loginAccount || !loginPassword) {
@@ -64,16 +110,45 @@ export default function Auth() {
         return;
       }
 
-      const user = users.find(u => u.account === loginAccount && u.password === loginPassword);
-      if (user) {
-        setCurrentUser(user);
-      } else {
-        setError('账号或密码错误');
+      try {
+        const res = await fetch('/api/collections/users/auth-with-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identity: loginAccount, password: loginPassword })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const rec = data.record;
+          setCurrentUser({
+            id: rec.id,
+            name: rec.name || '',
+            account: rec.email || rec.account || loginAccount,
+            avatar: rec.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${rec.id}`,
+            role: rec.role || 'child',
+            isAdmin: rec.isAdmin || false,
+            createdAt: rec.created || new Date().toISOString()
+          });
+          // 存储 token 供后续 API 调用
+          localStorage.setItem('pb_token', data.token);
+          localStorage.setItem('pb_user_id', rec.id);
+        } else {
+          setError('账号或密码错误');
+        }
+      } catch {
+        setError('网络连接失败，请检查服务是否启动');
       }
     }
     
     setLoading(false);
   };
+
+  if (serverHasUsers === null) {
+    return (
+      <div className="fixed inset-0 bg-[#F5F5F7] z-[500] flex items-center justify-center">
+        <RefreshCcw size={32} className="animate-spin text-stone-300" />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-[#F5F5F7] z-[500] flex items-center justify-center p-6 bg-dots overflow-y-auto pt-[10vh]">
