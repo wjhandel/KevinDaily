@@ -14,14 +14,15 @@ import { motion } from 'motion/react';
 interface SidebarProps {
   currentView: View;
   onViewChange: (view: View) => void;
+  pendingCount: number;
 }
 
-export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
+export default function Sidebar({ currentView, onViewChange, pendingCount }: SidebarProps) {
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: '仪表盘' },
     { id: 'ai-content', icon: Sparkles, label: 'AI 内容' },
     { id: 'library', icon: Library, label: '资源库' },
-    { id: 'audit', icon: ClipboardCheck, label: '审核中心', badge: '12' },
+    { id: 'audit', icon: ClipboardCheck, label: '审核中心' },
     { id: 'settings', icon: Settings, label: '设置' },
   ];
 
@@ -47,9 +48,9 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <item.icon size={20} strokeWidth={currentView === item.id ? 2.5 : 2} />
               <span className="text-sm font-display">{item.label}</span>
             </div>
-            {item.badge && (
+            {item.id === 'audit' && pendingCount > 0 && (
               <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                {item.badge}
+                {pendingCount > 99 ? '99+' : pendingCount}
               </span>
             )}
           </button>
