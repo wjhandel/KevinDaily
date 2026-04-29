@@ -15,6 +15,8 @@ export interface Task {
   recurrence: TaskRecurrence;
   active: boolean;
   isQuickIn?: boolean;
+  limitType?: 'none' | 'daily' | 'weekly';
+  limitCount?: number;
   color: string;
   icon: any; // Using any for lucide components
   iconColor: string;
@@ -64,6 +66,7 @@ export interface AppNotification {
 
 export interface ChildProfile {
   id: string;
+  user?: string;
   nickname: string;
   birthDate: string;
   gender: 'boy' | 'girl' | 'other';
@@ -87,10 +90,12 @@ export interface Reward {
   image: string;
   category: string;
   desc?: string;
-  status: 'available' | 'locked' | 'redeemed';
+  status: 'available' | 'locked' | 'redeemed' | 'pending' | 'redeeming';
+  suggestedBy?: 'parent' | 'child';
   stock?: number;
   limitType?: 'none' | 'weekly' | 'monthly';
   limitCount?: number;
+  created?: string;
 }
 
 export interface Article {
@@ -128,7 +133,51 @@ export interface VocabularyWord {
   addedAt: string;
 }
 
+export interface DeductionItem {
+  id: string;
+  title: string;
+  amount: number;
+  icon: any;
+  iconColor: string;
+  color: string;
+  iconName?: string;
+  weeklyLimit?: number;
+  dailyLimit?: number;
+}
+
 export interface SystemSettings {
   isRegistrationOpen: boolean;
   defaultPointsForNewChild: number;
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  iconColor: string;
+  description: string;
+  condition_type: string;
+  condition_value: number;
+  target_task_id?: string;
+  isActive: boolean;
+}
+
+export interface ChildBadge {
+  id: string;
+  child: string;
+  badge: string;
+  unlockedAt: string;
+  progress: number;
+}
+
+export interface Milestone {
+  id: string;
+  child: string;
+  title: string;
+  description?: string;
+  icon: string;
+  color: string;
+  milestone_type: string;
+  occurredAt: string;
 }
