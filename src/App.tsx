@@ -20,12 +20,30 @@ import { LayoutDashboard, Sparkles, Library, ClipboardCheck, Settings as Setting
 import { useTasks } from './TaskContext';
 
 export default function App() {
-  const { currentUser } = useTasks();
+  const { currentUser, submissions, loading, logout } = useTasks();
+  const pendingCount = submissions.filter(s => s.status === 'pending').length;
+  const isChild = currentUser?.role === 'child';
   const [currentView, setCurrentView] = useState<View>('dashboard');
-  const [appMode, setAppMode] = useState<Mode>(currentUser?.role === 'child' ? 'child' : 'parent');
+  const [appMode, setAppMode] = useState<Mode>(isChild ? 'child' : 'parent');
   const [isLocked, setIsLocked] = useState(false);
   const [pendingView, setPendingView] = useState<View | null>(null);
   const [pendingMode, setPendingMode] = useState<Mode | null>(null);
+
+  // 当 currentUser 变化时（登录/恢复/切换），同步 appMode
+  React.useEffect(() => {
+    if (currentUser) {
+      setAppMode(currentUser.role === 'child' ? 'child' : 'parent');
+    }
+  }, [currentUser?.id, currentUser?.role]);
+
+  // 正在恢复登录状态时显示加载动画
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-[#F5F5F7] z-[500] flex items-center justify-center">
+        <div className="w-8 h-8 border-3 border-stone-300 border-t-stone-800 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return <Auth />;
@@ -44,12 +62,14 @@ export default function App() {
   };
 
   const handleModeChange = (newMode: Mode) => {
+    // 孩子账号不能切换到家长端
+    if (isChild && newMode === 'parent') return;
     if (newMode === 'parent') {
-      // Switching TO parent requires password
+      // 切换到家长端需要密码验证
       setPendingMode('parent');
       setIsLocked(true);
     } else {
-      // Switching TO child is direct
+      // 切换到孩子端直接切换
       setAppMode('child');
     }
   };
@@ -67,6 +87,7 @@ export default function App() {
   };
 
   const renderView = () => {
+    // 孩子账号始终显示孩子端
     if (appMode === 'child') return <ChildPortal />;
 
     switch (currentView) {
@@ -81,8 +102,9 @@ export default function App() {
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-[#f5f6f7] relative">
-      {appMode === 'parent' && (
-        <Sidebar currentView={currentView} onViewChange={handleViewChange} />
+      {/* 侧边栏：仅在家长模式下且家长账号时显示 */}
+      {appMode === 'parent' && !isChild && (
+        <Sidebar currentView={currentView} onViewChange={handleViewChange} pendingCount={pendingCount} />
       )}
       
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
