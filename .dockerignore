@@ -1,0 +1,62 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist
+build
+
+# Development files
+.git
+.gitignore
+.env.local
+.env.development
+.env.production
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Test coverage
+coverage
+
+# Temporary files
+tmp
+temp
+*.tmp
+
+# PocketBase (should be run separately in container)
+pb/pb_data
+pb/pb_migrations/local_migrations
+*.db
+
+# Docker files (don't need to copy these into the image)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+.docker
+
+# GitHub
+.github
+
+# Documentation
+README.md
+*.md
+
+# Test files
+__tests__
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
