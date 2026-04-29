@@ -17,7 +17,8 @@ import { motion } from 'motion/react';
 import { useTasks } from '../TaskContext';
 
 export default function AuditCenter() {
-  const { tasks, submissions, updateSubmissionStatus, addNotification, childProfile, addPoints, markNotificationRead, notifications, addReward } = useTasks();
+  const { tasks, submissions, updateSubmissionStatus, addNotification, childProfile, addPoints, markNotificationRead, notifications, addReward, updateReward, rewards, reviewRedemption } = useTasks();
+  if (!childProfile) return null;
   const [active, setActive] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [rating, setRating] = useState(4.5);
@@ -33,9 +34,15 @@ export default function AuditCenter() {
   const historySubmissions = submissions.filter(s => s.status !== 'pending').sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
   const [view, setView] = useState<'pending' | 'history' | 'rewards'>('pending');
 
+  const childRedeemedRewards = rewards.filter(r => r.status === 'redeemed').sort((a, b) => new Date(b.created || 0).getTime() - new Date(a.created || 0).getTime());
+  const childRejectedRewards = rewards.filter(r => r.status === 'available' && r.suggestedBy === 'child').sort((a, b) => new Date(b.created || 0).getTime() - new Date(a.created || 0).getTime());
+  const allRedemptionHistory = [...childRedeemedRewards, ...childRejectedRewards].sort((a, b) => new Date(b.created || 0).getTime() - new Date(a.created || 0).getTime());
+  const [showRedemptionHistory, setShowRedemptionHistory] = useState(false);
+
   const activeSubmissionId = active || (view === 'pending' ? pendingSubmissions[0]?.id : view === 'rewards' ? (rewardRedeems.length > 0 ? rewardRedeems[0]?.id : proposedWishes[0]?.id) : null);
   const activeSubmission = submissions.find(s => s.id === activeSubmissionId);
   const activeRewardNotification = notifications.find(n => n.id === activeSubmissionId && (n.type === 'reward_redeemed' || n.type === 'new_wish_suggested'));
+  const activeRedemptionHistoryItem = showRedemptionHistory && view === 'rewards' ? allRedemptionHistory.find(r => r.id === active) : null;
   const activeTask = activeSubmission ? tasks.find(t => t.id === activeSubmission.taskId) : null;
 
   useEffect(() => {
@@ -134,8 +141,16 @@ export default function AuditCenter() {
 
         <div className="flex items-center justify-between shrink-0">
           <h2 className="text-sm font-black flex items-center gap-2 font-display tracking-tight text-stone-500 uppercase">
-            {view === 'pending' ? '待批改队列' : view === 'rewards' ? '待兑换心愿' : '最近记录'}
+            {view === 'pending' ? '待批改队列' : view === 'rewards' ? (showRedemptionHistory ? '审核历史' : '待兑换心愿') : '最近记录'}
           </h2>
+          {view === 'rewards' && allRedemptionHistory.length > 0 && (
+            <button 
+              onClick={() => { setShowRedemptionHistory(!showRedemptionHistory); setActive(null); }}
+              className="text-[10px] font-black text-secondary uppercase tracking-widest hover:underline"
+            >
+              {showRedemptionHistory ? '← 待审核' : '审核历史'}
+            </button>
+          )}
           {view === 'pending' && <button className="text-[10px] font-black text-secondary uppercase tracking-widest hover:underline">批量处理</button>}
         </div>
 
@@ -192,65 +207,116 @@ export default function AuditCenter() {
             </>
           ) : view === 'rewards' ? (
             <>
-              {rewardRedeems.length === 0 && proposedWishes.length === 0 && (
-                <div className="text-center py-10 bg-surface-low rounded-[1.75rem] text-sm text-stone-400 font-bold">
-                  目前没有待处理的心愿哦！
-                </div>
+              {showRedemptionHistory ? (
+                <>
+                  {allRedemptionHistory.length === 0 && (
+                    <div className="text-center py-10 bg-surface-low rounded-[1.75rem] text-sm text-stone-400 font-bold">
+                      暂无审核历史记录。
+                    </div>
+                  )}
+                  {allRedemptionHistory.map((item) => (
+                    <motion.div 
+                      key={item.id}
+                      onClick={() => setActive(item.id)}
+                      whileHover={{ x: 4 }}
+                      className={`p-5 rounded-[1.75rem] flex flex-col gap-4 cursor-pointer transition-all ${
+                        active === item.id
+                          ? 'bg-white shadow-xl shadow-stone-500/5 border-l-4 border-stone-400 ring-1 ring-stone-900/5'
+                          : 'bg-surface-low/50 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm font-bold ${
+                            item.status === 'redeemed' ? 'bg-emerald-100 text-emerald-600' : 'bg-stone-100 text-stone-400'
+                          }`}>
+                            {item.status === 'redeemed' ? '🎉' : '↩️'}
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm">
+                              {item.status === 'redeemed' ? '心愿已兑换' : '兑换已退回'}
+                            </h4>
+                            <span className="text-[9px] text-stone-400 font-bold italic tracking-wider">
+                              {new Date(item.created).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-[0.15em] ${
+                          item.status === 'redeemed' ? 'bg-emerald-100 text-emerald-600' : 'bg-stone-100 text-stone-500'
+                        }`}>
+                          {item.status === 'redeemed' ? '已通过' : '已退回'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-stone-600 truncate max-w-[140px] font-display">{item.title}</p>
+                        <span className="text-[10px] font-bold text-secondary">{item.cost} 积分</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {rewardRedeems.length === 0 && proposedWishes.length === 0 && (
+                    <div className="text-center py-10 bg-surface-low rounded-[1.75rem] text-sm text-stone-400 font-bold">
+                      目前没有待处理的心愿哦！
+                    </div>
+                  )}
+                  {rewardRedeems.map((item) => (
+                    <motion.div 
+                      key={item.id}
+                      onClick={() => setActive(item.id)}
+                      whileHover={{ x: 4 }}
+                      className={`p-5 rounded-[1.75rem] flex flex-col gap-4 cursor-pointer transition-all ${
+                        (active === item.id || (!active && (rewardRedeems.length > 0 ? rewardRedeems[0]?.id === item.id : false)))
+                          ? 'bg-white shadow-xl shadow-orange-500/5 border-l-4 border-orange-500 ring-1 ring-stone-900/5' 
+                          : 'bg-surface-low/50 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center border-2 border-white shadow-sm font-bold text-orange-600">
+                            🎁
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm">心愿兑换申请</h4>
+                            <span className="text-[9px] text-stone-400 font-bold italic tracking-wider">
+                              {new Date(item.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs font-bold text-stone-600 font-display">{item.title}</p>
+                    </motion.div>
+                  ))}
+                  {proposedWishes.map((item) => (
+                    <motion.div 
+                      key={item.id}
+                      onClick={() => setActive(item.id)}
+                      whileHover={{ x: 4 }}
+                      className={`p-5 rounded-[1.75rem] flex flex-col gap-4 cursor-pointer transition-all ${
+                        (active === item.id || (!active && rewardRedeems.length === 0 && proposedWishes[0]?.id === item.id))
+                          ? 'bg-white shadow-xl shadow-indigo-500/5 border-l-4 border-indigo-500 ring-1 ring-stone-900/5' 
+                          : 'bg-surface-low/50 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-white shadow-sm font-bold text-indigo-600">
+                            ✨
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm">新愿望投递</h4>
+                            <span className="text-[9px] text-stone-400 font-bold italic tracking-wider">
+                              {new Date(item.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs font-bold text-stone-600 font-display">{item.title}</p>
+                    </motion.div>
+                  ))}
+                </>
               )}
-              {rewardRedeems.map((item) => (
-                <motion.div 
-                  key={item.id}
-                  onClick={() => setActive(item.id)}
-                  whileHover={{ x: 4 }}
-                  className={`p-5 rounded-[1.75rem] flex flex-col gap-4 cursor-pointer transition-all ${
-                    (active === item.id || (!active && (rewardRedeems.length > 0 ? rewardRedeems[0]?.id === item.id : false)))
-                      ? 'bg-white shadow-xl shadow-orange-500/5 border-l-4 border-orange-500 ring-1 ring-stone-900/5' 
-                      : 'bg-surface-low/50 hover:bg-white'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center border-2 border-white shadow-sm font-bold text-orange-600">
-                        🎁
-                      </div>
-                      <div>
-                        <h4 className="font-black text-sm">心愿兑换申请</h4>
-                        <span className="text-[9px] text-stone-400 font-bold italic tracking-wider">
-                          {new Date(item.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs font-bold text-stone-600 font-display">{item.title}</p>
-                </motion.div>
-              ))}
-              {proposedWishes.map((item) => (
-                <motion.div 
-                  key={item.id}
-                  onClick={() => setActive(item.id)}
-                  whileHover={{ x: 4 }}
-                  className={`p-5 rounded-[1.75rem] flex flex-col gap-4 cursor-pointer transition-all ${
-                    (active === item.id || (!active && rewardRedeems.length === 0 && proposedWishes[0]?.id === item.id))
-                      ? 'bg-white shadow-xl shadow-indigo-500/5 border-l-4 border-indigo-500 ring-1 ring-stone-900/5' 
-                      : 'bg-surface-low/50 hover:bg-white'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-white shadow-sm font-bold text-indigo-600">
-                        ✨
-                      </div>
-                      <div>
-                        <h4 className="font-black text-sm">新愿望投递</h4>
-                        <span className="text-[9px] text-stone-400 font-bold italic tracking-wider">
-                          {new Date(item.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs font-bold text-stone-600 font-display">{item.title}</p>
-                </motion.div>
-              ))}
             </>
           ) : (
             <>
@@ -584,38 +650,67 @@ export default function AuditCenter() {
              <div className="flex gap-4">
                <button 
                  onClick={() => {
+                   if (activeRewardNotification.type === 'new_wish_suggested') {
+                     // 拒绝心愿：将 rewards 记录状态设为 locked，并标记通知已读
+                     const rewardId = activeRewardNotification.relatedId;
+                     if (rewardId) {
+                       const existingReward = rewards.find(r => r.id === rewardId);
+                       if (existingReward) {
+                         updateReward({ ...existingReward, status: 'locked' });
+                       }
+                     }
+                   } else if (activeRewardNotification.type === 'reward_redeemed') {
+                     // 拒绝兑换：退回积分，状态改回 available
+                     const rewardId = activeRewardNotification.relatedId;
+                     if (rewardId) {
+                       reviewRedemption(rewardId, 'reject');
+                     }
+                   }
                    markNotificationRead(activeRewardNotification.id);
                    setActive(null);
                  }}
-                 className={`flex-1 py-4 font-black rounded-xl transition-all uppercase tracking-widest text-[10px] ${activeRewardNotification.type === 'new_wish_suggested' ? 'bg-surface-low text-stone-400 hover:bg-stone-200' : 'bg-orange-500 text-white shadow-xl shadow-orange-500/20'}`}
+                 className={`flex-1 py-4 font-black rounded-xl transition-all uppercase tracking-widest text-[10px] ${activeRewardNotification.type === 'new_wish_suggested' ? 'bg-surface-low text-stone-400 hover:bg-stone-200' : 'bg-rose-500 text-white shadow-xl shadow-rose-500/20 hover:brightness-110'}`}
                >
-                 {activeRewardNotification.type === 'new_wish_suggested' ? '暂时拒绝' : '确认已处理 (标为已读)'}
+                 {activeRewardNotification.type === 'new_wish_suggested' ? '暂时拒绝' : '拒绝退回积分'}
                </button>
                {activeRewardNotification.type === 'new_wish_suggested' && (
                  <button 
                    onClick={() => {
-                     // Extract wish title from message if possible or just use a generic one
-                     // The message was: `${childProfile.nickname} 投递了一个新愿望：“${newWishTitle}”...`
-                     const match = activeRewardNotification.message.match(/“(.+?)”/);
-                     const wishName = match ? match[1] : '新愿望';
-                     
-                     addReward({
-                       id: Math.random().toString(36).substr(2, 9),
-                       title: wishName,
-                       cost: wishCost,
-                       icon: Gift,
-                       image: 'https://images.unsplash.com/photo-1543332164-6e82f355badc?q=80&w=600&auto=format&fit=crop', // Default image
-                       status: 'available',
-                       category: '惊喜'
-                     });
+                     // 通知的 relatedId 指向孩子创建的 rewards 记录
+                     const rewardId = activeRewardNotification.relatedId;
+                     const existingReward = rewardId ? rewards.find(r => r.id === rewardId) : null;
 
-                     addNotification({
-                        recipient: 'child',
-                        type: 'wish_approved',
-                        title: '🎉 愿望已加入心愿单！',
-                        message: `爸爸妈妈已经同意了你的愿望 "${wishName}"，快去看看需要多少星星来兑换吧！`,
-                        relatedId: 'wish_approved'
-                     });
+                     if (existingReward) {
+                       // 更新已有 rewards 记录的状态为 available，并设定家长确定的积分
+                       // Hook 4 会自动发送 wish_approved 通知给孩子
+                       updateReward({
+                         ...existingReward,
+                         cost: wishCost,
+                         status: 'available',
+                       });
+                     } else {
+                       // 兜底：如果找不到对应 reward（兼容旧数据），创建新的
+                       const match = activeRewardNotification.message.match(/「(.+?)」/);
+                       const wishName = match ? match[1] : '新愿望';
+                       
+                       addReward({
+                         id: Math.random().toString(36).substr(2, 9),
+                         title: wishName,
+                         cost: wishCost,
+                         icon: Gift,
+                         image: 'https://images.unsplash.com/photo-1543332164-6e82f355badc?q=80&w=600&auto=format&fit=crop',
+                         status: 'available',
+                         category: '惊喜'
+                       });
+
+                       addNotification({
+                          recipient: 'child',
+                          type: 'wish_approved',
+                          title: '🎉 愿望已加入心愿单！',
+                          message: `爸爸妈妈已经同意了你的愿望 "${wishName}"，快去看看需要多少星星来兑换吧！`,
+                          relatedId: 'wish_approved'
+                       });
+                     }
 
                      markNotificationRead(activeRewardNotification.id);
                      setActive(null);
@@ -625,6 +720,52 @@ export default function AuditCenter() {
                    加入心愿仓库
                  </button>
                )}
+               {activeRewardNotification.type === 'reward_redeemed' && (
+                 <button 
+                   onClick={() => {
+                     // 确认兑换：积分已预扣，确认后 status 改为 redeemed
+                     const rewardId = activeRewardNotification.relatedId;
+                     if (rewardId) {
+                       reviewRedemption(rewardId, 'approve');
+                     }
+                     markNotificationRead(activeRewardNotification.id);
+                     setActive(null);
+                   }}
+                   className="flex-[2] py-4 bg-orange-500 text-white font-black rounded-xl shadow-xl shadow-orange-500/20 hover:scale-[1.02] active:scale-95 transition-all text-[10px] uppercase tracking-widest"
+                 >
+                   确认兑换
+                 </button>
+               )}
+             </div>
+           </div>
+        </section>
+      ) : activeRedemptionHistoryItem ? (
+        <section className="flex-1 flex flex-col gap-6 overflow-y-auto no-scrollbar pb-8 items-center justify-center">
+           <div className="bento-card p-12 text-center max-w-lg w-full">
+             <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${
+               activeRedemptionHistoryItem.status === 'redeemed' ? 'bg-emerald-100' : 'bg-stone-100'
+             }`}>
+               {activeRedemptionHistoryItem.status === 'redeemed' ? (
+                 <Gift size={48} className="text-emerald-500" />
+               ) : (
+                 <RotateCcw size={48} className="text-stone-400" />
+               )}
+             </div>
+             <h3 className="text-2xl font-black font-display mb-4">
+               {activeRedemptionHistoryItem.status === 'redeemed' ? '🎉 心愿已兑换' : '↩️ 兑换已退回'}
+             </h3>
+             <p className="text-stone-600 font-bold mb-2">
+               {activeRedemptionHistoryItem.title}
+             </p>
+             <p className="text-secondary font-black text-lg mb-8">
+               {activeRedemptionHistoryItem.cost} 积分
+             </p>
+             <div className={`w-full py-4 rounded-2xl text-center font-black text-[10px] uppercase tracking-widest ${
+               activeRedemptionHistoryItem.status === 'redeemed' 
+                 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                 : 'bg-stone-100 text-stone-500 border border-stone-200'
+             }`}>
+               {activeRedemptionHistoryItem.status === 'redeemed' ? '该心愿已成功兑换' : '积分已退回孩子账户'}
              </div>
            </div>
         </section>
