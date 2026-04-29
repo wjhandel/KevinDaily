@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Star, 
-  Trophy, 
-  Gamepad2, 
-  BookOpen, 
-  Palette, 
-  Trash2, 
+import {
+  Star,
+  Trophy,
+  Gamepad2,
+  BookOpen,
+  Palette,
+  Trash2,
   Volume2,
-  Rocket, 
+  Rocket,
   CheckCircle2,
   Clock,
   Home as HomeIcon,
+  Home,
   Calendar,
   Award,
   Heart,
@@ -37,17 +38,37 @@ import {
   TreePine,
   BedDouble,
   Bell,
-  LogOut
+  LogOut,
+  Dumbbell,
+  Calculator,
+  GraduationCap,
+  CheckCircle,
+  Brush,
+  Upload,
 } from 'lucide-react';
 import { useTasks } from '../TaskContext';
 import { ChildView } from '../types';
+import { apiUpload } from '../lib/api';
 import ReadingRecorder from './ReadingRecorder';
+
+const getAvatarUrl = (avatarUrl?: string, nickname?: string, childProfileId?: string): string => {
+  if (!avatarUrl) {
+    return `https://api.dicebear.com/7.x/notionists/svg?seed=${nickname || 'Felix'}&backgroundColor=b6e3f4`;
+  }
+  if (avatarUrl.startsWith('http')) {
+    return avatarUrl;
+  }
+  // Use localhost for PocketBase file URLs (works with Vite proxy in dev)
+  return `http://127.0.0.1:8090/api/files/child_profiles/${childProfileId}/${avatarUrl}`;
+};
 
 export default function ChildPortal() {
   const [activeTab, setActiveTab ] = useState<ChildView>('home');
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showNotifications, setShowNotifications] = useState(false);
+  const [bonusNotification, setBonusNotification] = useState<any>(null);
+  const [deductionNotification, setDeductionNotification] = useState<any>(null);
   const [activeTaskProcessing, setActiveTaskProcessing] = useState<any>(null);
   const [recordingTaskId, setRecordingTaskId] = useState<string | null>(null);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
@@ -65,6 +86,9 @@ export default function ChildPortal() {
   const [isSubmittingQuick, setIsSubmittingQuick] = useState(false);
   const [redeemingItem, setRedeemingItem] = useState<any>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingPrimary, setIsSettingPrimary] = useState(false);
   const [primaryWishId, setPrimaryWishId] = useState<string | null>(null);
   const { 
@@ -83,11 +107,60 @@ export default function ChildPortal() {
     rewards,
     weeklyGiftConfig,
     addPoints,
+    addReward,
+    suggestWish,
+    requestRedemption,
     updateReward,
-    setCurrentUser,
+    logout,
     vocabulary,
-    removeVocabulary
+    removeVocabulary,
+    childProfileId,
+    earnedBadgeCount,
+    badges,
+    childBadges,
+    milestones,
+    generateMilestones,
   } = useTasks();
+
+  useEffect(() => {
+    if (childProfileId) {
+      generateMilestones();
+    }
+  }, [childProfileId, childBadges.length, submissions.length]);
+
+  const getBadgeIcon = (iconName: string) => {
+    const icons: Record<string, any> = {
+      Flame, BookOpen, Trophy, Calculator, Dumbbell, Home, Brush, GraduationCap, CheckCircle, Award, Star, Activity
+    };
+    return icons[iconName] || Star;
+  };
+
+  const earnedBadgeIds = new Set(childBadges.map(cb => cb.badge));
+
+  React.useEffect(() => {
+    if (!childProfile) return;
+    const bonusNotif = notifications.find(n =>
+      n.recipient === 'child' &&
+      (n.type === 'system' || n.type === 'bonus') && !n.read &&
+      (n.title.includes('红包') || n.title.includes('惊喜礼物'))
+    );
+    if (bonusNotif) {
+      setBonusNotification(bonusNotif);
+    }
+  }, [notifications, childProfile]);
+
+  React.useEffect(() => {
+    if (!childProfile) return;
+    const dedNotif = notifications.find(n =>
+      n.recipient === 'child' &&
+      n.type === 'deduction' && !n.read
+    );
+    if (dedNotif) {
+      setDeductionNotification(dedNotif);
+    }
+  }, [notifications, childProfile]);
+
+  if (!childProfile) return null;
 
   const getRedemptionsCount = (rewardId: string, limitType: 'weekly' | 'monthly') => {
     const now = new Date();
@@ -225,7 +298,7 @@ export default function ChildPortal() {
     addSubmission({
       id: submissionId,
       taskId: task.id,
-      childId: 'child_1', 
+      childId: childProfileId || 'unknown',
       status: 'pending',
       submittedAt: new Date().toISOString(),
       photoUrl: photoUrl,
@@ -271,15 +344,15 @@ export default function ChildPortal() {
   };
 
   const renderHome = () => (
-    <div className="space-y-6 pb-24 pt-4">
+    <div className="space-y-4 pb-24 pt-4">
       {/* Profile Info & Stars */}
       <div className="flex items-center justify-between mb-8 px-2">
         <div className="flex items-center gap-4">
           <div className="relative w-16 h-16 rounded-full overflow-hidden bg-stone-100 border-2 border-white shadow-sm">
-            <img 
-              src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=b6e3f4" 
-              alt="Avatar" 
-              className="w-full h-full object-cover" 
+            <img
+              src={getAvatarUrl(childProfile.avatarUrl, childProfile.nickname, childProfileId)}
+              alt="Avatar"
+              className="w-full h-full object-cover"
             />
           </div>
           <div>
@@ -290,55 +363,6 @@ export default function ChildPortal() {
           </div>
         </div>
         <div className="flex items-center gap-3 relative">
-          <button 
-            onClick={() => setCurrentUser(null)}
-            className="w-10 h-10 rounded-full bg-white shadow-sm border border-stone-100 flex items-center justify-center hover:bg-stone-50 transition-colors"
-            title="退出登录"
-          >
-            <LogOut size={20} className="text-stone-400" />
-          </button>
-
-          <button 
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="w-10 h-10 rounded-full bg-white shadow-sm border border-stone-100 flex items-center justify-center relative hover:bg-stone-50 transition-colors"
-          >
-            <Bell size={20} className="text-stone-600" />
-            {unreadCount > 0 && (
-              <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <div className="absolute top-12 right-0 w-72 bg-white rounded-3xl shadow-xl border border-stone-100 overflow-hidden z-50">
-              <div className="px-5 py-4 border-b border-stone-100 flex justify-between items-center">
-                <div className="flex flex-col">
-                  <h3 className="font-black text-stone-800">消息通知</h3>
-                  {unreadCount > 0 && <span className="text-[10px] text-stone-400 font-bold">{unreadCount} 条未读</span>}
-                </div>
-                {unreadCount > 0 && (
-                  <button 
-                    onClick={() => markAllNotificationsRead('child')}
-                    className="text-[10px] text-orange-500 font-bold hover:underline"
-                  >
-                    全部标为已读
-                  </button>
-                )}
-              </div>
-              <div className="max-h-64 overflow-y-auto no-scrollbar">
-                {childNotifications.length === 0 ? (
-                  <p className="text-center py-6 text-stone-400 font-bold text-sm">暂时没有新消息~</p>
-                ) : (
-                  childNotifications.map(n => (
-                     <div key={n.id} onClick={() => markNotificationRead(n.id)} className={`p-4 border-b border-stone-50 cursor-pointer transition-colors ${n.read ? 'bg-white' : 'bg-orange-50/50'}`}>
-                       <h4 className="font-bold text-sm text-stone-800 mb-1">{n.title}</h4>
-                       <p className="text-xs text-stone-500">{n.message}</p>
-                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
           <div className="flex items-center bg-white px-4 py-2 rounded-full shadow-sm border border-stone-100">
             <Star size={20} className="text-orange-500 fill-current" />
             <span className="font-display font-black text-xl ml-2 text-orange-600">{points.toLocaleString()}</span>
@@ -358,7 +382,7 @@ export default function ChildPortal() {
           <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-100 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
           <Medal size={36} className="text-purple-500 fill-current mb-2 relative z-10" />
           <p className="font-bold text-stone-500 text-xs relative z-10">获得奖章</p>
-          <p className="font-display font-black text-3xl text-stone-800 mt-1 relative z-10">12 <span className="text-base">个</span></p>
+          <p className="font-display font-black text-3xl text-stone-800 mt-1 relative z-10">{earnedBadgeCount} <span className="text-base">个</span></p>
         </div>
       </section>
 
@@ -369,12 +393,12 @@ export default function ChildPortal() {
         onMouseLeave={endLongPress}
         onTouchStart={startLongPress}
         onTouchEnd={endLongPress}
-        className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 relative overflow-hidden mt-6 cursor-pointer touch-none select-none hover:border-purple-200 transition-colors"
+        className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 relative overflow-hidden mt-4 cursor-pointer touch-none select-none hover:border-purple-200 transition-colors"
       >
         <div className="flex justify-between items-end mb-4">
           <div>
             <h2 className="font-display font-black text-xl text-stone-800 mb-1">当前心愿进度</h2>
-            <p className="font-bold text-stone-500 text-sm">向着“{topReward?.title || '目标'}”前进！</p>
+            <p className="font-bold text-stone-500 text-sm">向着"{topReward?.title || '目标'}"前进！</p>
           </div>
           <Gift size={32} className="text-purple-500 fill-current" />
         </div>
@@ -457,22 +481,32 @@ export default function ChildPortal() {
       </AnimatePresence>
 
       {/* Today's Mission */}
-      <section className="mt-10">
-        <h2 className="font-display font-black text-2xl text-stone-800 mb-6 px-2">今日任务</h2>
+      <section className="mt-4">
+        <h2 className="font-display font-black text-xl text-stone-800 mb-4 px-2">今日任务</h2>
         <div className="flex flex-col gap-4">
           {globalTasks
-            .filter(t => t.active)
+            .filter(t => {
+              if (!t.active) return false;
+              if (t.recurrence !== 'quick') return true;
+              const todayStr = new Date().toLocaleDateString();
+              return submissions.some(s =>
+                s.taskId === t.id &&
+                new Date(s.submittedAt).toLocaleDateString() === todayStr
+              );
+            })
             .map(task => {
-              const submission = submissions.find(s => 
-                s.taskId === task.id && 
-                new Date(s.submittedAt).toLocaleDateString() === new Date().toLocaleDateString()
+              const todayStr = new Date().toLocaleDateString();
+              const submission = submissions.find(s =>
+                s.taskId === task.id &&
+                new Date(s.submittedAt).toLocaleDateString() === todayStr
               );
               return { task, submission };
             })
             .sort((a, b) => {
               const aDone = a.submission?.status === 'approved' ? 1 : 0;
               const bDone = b.submission?.status === 'approved' ? 1 : 0;
-              return aDone - bDone;
+              if (aDone !== bDone) return aDone - bDone;
+              return (a.task.recurrence === 'weekly' ? 1 : 0) - (b.task.recurrence === 'weekly' ? 1 : 0);
             })
             .map(({ task, submission }) => {
               const isCompleted = submission?.status === 'approved';
@@ -480,14 +514,14 @@ export default function ChildPortal() {
               const isRejected = submission?.status === 'rejected';
 
               return (
-              <div key={task.id} className={`bg-white rounded-3xl p-5 flex items-center justify-between shadow-sm border border-stone-100 hover:border-orange-200 transition-colors ${isCompleted ? 'opacity-60 grayscale-[0.5]' : 'cursor-pointer group'}`}>
-              <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 ${task.color} rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
-                  <task.icon size={24} className={task.iconColor} />
+              <div key={task.id} className={`bg-white rounded-2xl p-4 flex items-center justify-between shadow-sm border ${isCompleted ? 'border-emerald-200 bg-emerald-50/50' : 'border-stone-100 hover:border-orange-200'} transition-colors ${isCompleted ? '' : 'cursor-pointer group'}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 ${task.color} rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
+                  <task.icon size={20} className={task.iconColor} />
                 </div>
                 <div>
-                  <h3 className={`font-display font-black text-lg text-stone-800 ${isCompleted ? 'line-through decoration-stone-400 decoration-2' : ''}`}>{task.title}</h3>
-                  <p className="font-bold text-stone-500 text-xs mt-1">
+                  <h3 className={`font-display font-black text-lg ${isCompleted ? 'text-emerald-600' : 'text-stone-800'}`}>{task.title}</h3>
+                  <p className="font-bold text-xs mt-1">
                     {isCompleted ? '太棒了！已完成' : isRejected ? '需改进，请重做' : `${task.reward} 积分奖励`}
                   </p>
                 </div>
@@ -512,31 +546,38 @@ export default function ChildPortal() {
             </div>
             );
           })}
-          {globalTasks.filter(t => t.active).length === 0 && (
-            <div className="text-center py-8 bg-white rounded-3xl border border-stone-100 border-dashed">
-              <p className="text-stone-400 font-bold">今天没有安排任务哦，好好休息吧！</p>
+          {globalTasks.filter(t => t.active && t.recurrence !== 'quick').length === 0 &&
+            globalTasks.filter(t => t.active && t.recurrence === 'quick').every(t => {
+              const todayStr = new Date().toLocaleDateString();
+              return !submissions.some(s =>
+                s.taskId === t.id &&
+                new Date(s.submittedAt).toLocaleDateString() === todayStr
+              );
+            }) && (
+            <div className="text-center py-8 bg-white rounded-2xl border border-stone-100 border-dashed">
+              <p className="text-stone-400 font-bold text-sm">今天没有安排任务哦，好好休息吧！</p>
             </div>
           )}
         </div>
       </section>
 
-      <section className="mt-8 mb-6">
-        <motion.div 
+      <section className="mt-2 mb-2">
+        <motion.div
           onClick={() => setIsQuickCheckInOpen(true)}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="bg-gradient-to-br from-orange-400 to-orange-600 p-6 rounded-[2.5rem] shadow-xl shadow-orange-500/20 relative overflow-hidden group cursor-pointer"
+          className="bg-gradient-to-br from-orange-400 to-orange-600 p-5 rounded-[2rem] shadow-xl shadow-orange-500/20 relative overflow-hidden group cursor-pointer"
         >
           <div className="relative z-10 flex items-center justify-between">
-            <div className="space-y-1">
-              <h3 className="text-white font-display font-black text-xl leading-tight">点击进行快速打卡</h3>
-              <p className="text-orange-100 font-bold text-xs">开始你的夺星计划！✨</p>
+            <div className="space-y-0.5">
+              <h3 className="text-white font-display font-black text-lg leading-tight">点击进行快速打卡</h3>
+              <p className="text-orange-100 font-bold text-[10px]">开始你的夺星计划！✨</p>
             </div>
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white">
-              <Plus size={28} />
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white">
+              <Plus size={24} />
             </div>
           </div>
-          <Rocket size={100} className="absolute -bottom-6 -right-6 text-white/10 rotate-12 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform duration-500" />
+          <Rocket size={60} className="absolute -bottom-4 -right-4 text-white/10 rotate-12 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform duration-500" />
         </motion.div>
       </section>
 
@@ -570,23 +611,48 @@ export default function ChildPortal() {
 
               <div className="flex-1 overflow-y-auto p-8 pt-4 space-y-4 no-scrollbar">
                 <div className="grid grid-cols-1 gap-3">
-                  {globalTasks.filter(t => t.active && t.isQuickIn).map(task => {
-                    const submission = submissions.find(s => s.taskId === task.id);
-                    const isCompleted = submission?.status === 'approved';
-                    const isPending = submission?.status === 'pending';
-                    
-                    if (isCompleted) return null;
+                  {globalTasks.filter(t => t.active && t.recurrence === 'quick').map(task => {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const todaySubmissions = submissions.filter(s =>
+                      s.taskId === task.id &&
+                      new Date(s.submittedAt).toISOString().split('T')[0] === todayStr
+                    );
+                    const completedToday = todaySubmissions.filter(s => s.status === 'approved').length;
+                    const pendingToday = todaySubmissions.filter(s => s.status === 'pending').length;
+
+                    let remaining = null;
+                    let limitReason = '';
+                    let isLimited = false;
+                    if (task.limitType === 'daily' && task.limitCount) {
+                      remaining = Math.max(0, task.limitCount - completedToday);
+                      isLimited = remaining <= 0;
+                      if (isLimited) limitReason = `今日已达${task.limitCount}次上限`;
+                    } else if (task.limitType === 'weekly' && task.limitCount) {
+                      const weekStart = new Date();
+                      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+                      weekStart.setHours(0, 0, 0, 0);
+                      const weekSubmissions = submissions.filter(s =>
+                        s.taskId === task.id &&
+                        new Date(s.submittedAt) >= weekStart &&
+                        s.status === 'approved'
+                      );
+                      remaining = Math.max(0, task.limitCount - weekSubmissions.length);
+                      isLimited = remaining <= 0;
+                      if (isLimited) limitReason = `本周已达${task.limitCount}次上限`;
+                    }
+
+                    const isDisabled = pendingToday > 0 || isLimited;
 
                     return (
                       <button
                         key={task.id}
-                        onClick={() => setSelectedTaskId(task.id)}
-                        disabled={isPending}
+                        onClick={() => !isDisabled && setSelectedTaskId(task.id)}
+                        disabled={isDisabled}
                         className={`flex items-center justify-between p-5 rounded-3xl transition-all border-2 ${
-                          selectedTaskId === task.id 
-                            ? 'bg-orange-50 border-orange-400 shadow-lg shadow-orange-500/5' 
-                            : isPending 
-                              ? 'bg-stone-50 border-transparent opacity-50' 
+                          selectedTaskId === task.id
+                            ? 'bg-orange-50 border-orange-400 shadow-lg shadow-orange-500/5'
+                            : isDisabled
+                              ? 'bg-stone-50 border-transparent opacity-50'
                               : 'bg-stone-50 border-transparent hover:bg-stone-100 hover:border-stone-200'
                         }`}
                       >
@@ -595,14 +661,30 @@ export default function ChildPortal() {
                             <task.icon size={24} className={task.iconColor} />
                           </div>
                           <div className="text-left">
-                            <h4 className="font-black text-stone-800 font-display">{task.title}</h4>
-                            <span className="text-[10px] font-bold text-orange-500 px-2 py-0.5 bg-orange-100 rounded-full uppercase">
-                              {isPending ? '待审核' : `+${task.reward} 积分`}
-                            </span>
+                            <h4 className={`font-black font-display ${isDisabled ? 'text-stone-400' : 'text-stone-800'}`}>{task.title}</h4>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                pendingToday > 0 ? 'bg-yellow-100 text-yellow-600' : 
+                                isLimited ? 'bg-stone-100 text-stone-400' :
+                                'bg-orange-100 text-orange-500'
+                              }`}>
+                                {pendingToday > 0 ? '待审核' : isLimited ? '已达上限' : `+${task.reward} 积分`}
+                              </span>
+                              {limitReason && (
+                                <span className="text-[10px] font-bold text-stone-400">
+                                  {limitReason}
+                                </span>
+                              )}
+                              {!isDisabled && remaining !== null && (
+                                <span className="text-[10px] font-bold text-stone-400">
+                                  剩余 {remaining} {task.limitType === 'daily' ? '次/天' : '次/周'}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        {!isPending && (
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                        {!isDisabled && (
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
                             selectedTaskId === task.id ? 'bg-orange-500 border-orange-500' : 'border-stone-200'
                           }`}>
                             {selectedTaskId === task.id && <Check size={14} className="text-white" />}
@@ -625,7 +707,7 @@ export default function ChildPortal() {
                       addSubmission({
                         id: Math.random().toString(36).substr(2, 9),
                         taskId: selectedTaskId,
-                        childId: '1',
+                        childId: childProfileId || 'unknown',
                         status: 'pending',
                         submittedAt: new Date().toISOString(),
                         comment: '快速打卡'
@@ -926,42 +1008,16 @@ export default function ChildPortal() {
         </div>
       </section>
 
-      {/* Progress Stats Visual */}
-      <section className="bg-white rounded-[2.5rem] p-8 text-center relative overflow-hidden shadow-sm border border-stone-100">
-        <div className="relative z-10">
-          <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.3em] mb-4 block">Adventure Level</span>
-          <div className="text-6xl font-display font-black text-amber-800 mb-4 tracking-tighter">LVL 4</div>
-          <div className="w-full h-3 bg-stone-100 rounded-full mb-3 overflow-hidden border border-stone-200/50">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: '75%' }}
-              className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full"
-            />
-          </div>
-          <p className="text-xs font-bold text-amber-800/80">750 / 1000 经验值升至 5 级！</p>
-        </div>
-        <div className="absolute top-0 right-0 w-40 h-40 bg-orange-50 rounded-full -mr-20 -mt-20 opacity-50"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-50 rounded-full -ml-16 -mb-16 opacity-50"></div>
-      </section>
+      
     </div>
     );
   };
 
   const renderHonors = () => {
-    const badges = [
-      { id: 1, name: '早起达人', icon: Flame, color: 'bg-orange-500', unlocked: true, desc: '连续 7 天 8 点前起床' },
-      { id: 2, name: '阅读之星', icon: BookOpen, color: 'bg-blue-500', unlocked: true, desc: '累计阅读 100 页' },
-      { id: 3, name: '全能选手', icon: Trophy, color: 'bg-yellow-500', unlocked: true, desc: '完成所有类型的任务' },
-      { id: 4, name: '活力满满', icon: Activity, color: 'bg-green-500', unlocked: true, desc: '累计运动 10 小时' },
-      { id: 5, name: '小小画家', icon: Palette, color: 'bg-pink-500', unlocked: false, desc: '提交 10 份绘画作品' },
-      { id: 6, name: '时间管家', icon: Clock, color: 'bg-indigo-500', unlocked: false, desc: '所有任务按时完成' },
-    ];
+    const totalBadges = badges.length;
+    const unlockedCount = childBadges.length;
 
-    const milestones = [
-      { date: '2026.04.25', title: '获得“阅读之星”勋章', icon: Award, color: 'text-blue-600' },
-      { date: '2026.04.15', title: '累计获得 100 颗星星', icon: Star, color: 'text-yellow-500' },
-      { date: '2026.04.01', title: '奇幻旅程：初次加入', icon: Rocket, color: 'text-indigo-500' },
-    ];
+    const displayMilestones = milestones.length > 0 ? milestones : [];
 
     return (
       <div className="space-y-10 pb-16 -mx-4 lg:-mx-8">
@@ -982,9 +1038,9 @@ export default function ChildPortal() {
                 </div>
               </motion.div>
               <div className="w-28 h-28 rounded-full border-4 border-yellow-400 p-1 bg-white ring-8 ring-white/10 shadow-2xl">
-                <img 
-                  src={`https://api.dicebear.com/7.x/adventurer/svg?seed=Felix&backgroundColor=b6e3f4`} 
-                  alt="Avatar" 
+                <img
+                  src={getAvatarUrl(childProfile.avatarUrl, childProfile.nickname, childProfileId)}
+                  alt="Avatar"
                   className="w-full h-full rounded-full"
                 />
               </div>
@@ -1020,13 +1076,16 @@ export default function ChildPortal() {
                 成就勋章
               </h3>
               <div className="px-3 py-1 bg-stone-100 rounded-full">
-                <span className="text-stone-500 text-[10px] font-black">已习得 4/12</span>
+                <span className="text-stone-500 text-[10px] font-black">已习得 {unlockedCount}/{totalBadges}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-y-10 gap-x-6">
-              {badges.map((badge, idx) => (
-                <motion.div 
+              {badges.filter(b => b.isActive).map((badge, idx) => {
+                const isUnlocked = earnedBadgeIds.has(badge.id);
+                const IconComponent = getBadgeIcon(badge.icon);
+                return (
+                <motion.div
                   key={badge.id}
                   initial={{ opacity: 0, scale: 0.8 }}
                   whileInView={{ opacity: 1, scale: 1 }}
@@ -1034,25 +1093,26 @@ export default function ChildPortal() {
                   transition={{ delay: idx * 0.1 }}
                   className="flex flex-col items-center gap-3 group"
                 >
-                  <div className={`relative w-16 h-16 rounded-[1.5rem] ${badge.unlocked ? badge.color : 'bg-stone-100'} flex items-center justify-center transition-all duration-500 ${badge.unlocked ? 'shadow-lg shadow-current/20 rotate-3 group-hover:rotate-0 group-hover:scale-110' : 'grayscale border-2 border-stone-100'}`}>
-                    <badge.icon size={28} className={`${badge.unlocked ? 'text-white' : 'text-stone-300'}`} />
-                    {!badge.unlocked && <Lock size={12} className="absolute inset-0 m-auto text-stone-400" />}
-                    {badge.unlocked && (
+                  <div className={`relative w-16 h-16 rounded-[1.5rem] ${isUnlocked ? badge.color : 'bg-stone-100'} flex items-center justify-center transition-all duration-500 ${isUnlocked ? 'shadow-lg shadow-current/20 rotate-3 group-hover:rotate-0 group-hover:scale-110' : 'grayscale border-2 border-stone-100'}`}>
+                    <IconComponent size={28} className={`${isUnlocked ? 'text-white' : 'text-stone-300'}`} />
+                    {!isUnlocked && <Lock size={12} className="absolute inset-0 m-auto text-stone-400" />}
+                    {isUnlocked && (
                       <div className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-stone-50">
                         <Check size={14} className="text-emerald-500" strokeWidth={4} />
                       </div>
                     )}
                   </div>
                   <div className="text-center">
-                    <span className={`text-[11px] font-black uppercase tracking-tight block ${badge.unlocked ? 'text-stone-800' : 'text-stone-400'}`}>
+                    <span className={`text-[11px] font-black uppercase tracking-tight block ${isUnlocked ? 'text-stone-800' : 'text-stone-400'}`}>
                       {badge.name}
                     </span>
                     <span className="text-[9px] font-medium text-stone-400 leading-none">
-                      {badge.unlocked ? '已解锁' : '未达成'}
+                      {isUnlocked ? '已解锁' : '未达成'}
                     </span>
                   </div>
                 </motion.div>
-              ))}
+              );
+              })}
             </div>
           </div>
         </section>
@@ -1124,9 +1184,12 @@ export default function ChildPortal() {
                />
             </div>
             
-            {milestones.map((m, idx) => (
-              <motion.div 
-                key={idx}
+            {displayMilestones.map((m, idx) => {
+              const MilestoneIcon = getBadgeIcon(m.icon);
+              const dateStr = m.occurredAt ? new Date(m.occurredAt).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : '';
+              return (
+              <motion.div
+                key={m.id || idx}
                 initial={{ x: -20, opacity: 0 }}
                 whileInView={{ x: 0, opacity: 1 }}
                 viewport={{ once: true }}
@@ -1135,20 +1198,21 @@ export default function ChildPortal() {
               >
                 {/* Connector Node */}
                 <div className={`absolute left-[-5px] top-2 w-5 h-5 bg-white rounded-full border-4 ${idx === 0 ? 'border-indigo-500 shadow-lg shadow-indigo-500/30' : 'border-stone-200'} z-10`} />
-                
+
                 <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-stone-100 hover:shadow-md transition-shadow group">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl bg-stone-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
-                      <m.icon size={22} className={m.color} />
+                      <MilestoneIcon size={22} className={m.color} />
                     </div>
                     <div>
-                      <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{m.date}</span>
+                      <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{dateStr}</span>
                       <h4 className="text-base font-display font-black text-stone-800 mt-1 leading-tight">{m.title}</h4>
                     </div>
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -1196,22 +1260,10 @@ export default function ChildPortal() {
         }
       }
 
-      deductPoints(item.cost, `兑换：${item.title}`, item.id);
-      
-      // Update stock if not unlimited
-      if (item.stock !== undefined && item.stock > 0) {
-        updateReward({ ...item, stock: item.stock - 1 });
-      }
-
-      addNotification({
-        recipient: 'parent',
-        type: 'reward_redeemed',
-        title: '🎁 孩子想要兑换心愿',
-        message: `${childProfile.nickname} 使用了 ${item.cost} 积分兑换了：${item.title}。请及时准备奖品哦！`,
-        relatedId: item.id
-      });
+      // 通过自定义路由：预扣积分 + status=redeeming + 通知家长审核
+      requestRedemption(item.id);
       setRedeemingItem(null);
-      alert('兑换成功！快去找爸爸妈妈领取奖励吧～🎉');
+      alert('兑换申请已提交！等爸爸妈妈确认后就可以领取啦～🎉');
     };
 
     const handleRedeemClick = (item: any) => {
@@ -1268,7 +1320,7 @@ export default function ChildPortal() {
                 </p>
                 
                 <div className="mt-8 flex items-center gap-4">
-                  <button 
+                  <button
                     onClick={() => setIsNewWishModalOpen(true)}
                     className="bg-white text-indigo-600 shadow-lg px-8 py-4 rounded-2xl flex items-center gap-3 font-black hover:scale-105 active:scale-95 transition-all text-sm group"
                   >
@@ -1452,7 +1504,7 @@ export default function ChildPortal() {
                    <h3 className="text-2xl font-black text-stone-800 font-display mb-2">确认兑换心愿吗？</h3>
                    <p className="text-stone-500 font-bold mb-8">
                      你将使用 <span className="text-orange-600 font-black">{redeemingItem.cost}</span> 颗星星来兑换<br/>
-                     <span className="text-stone-800">“{redeemingItem.title}”</span>
+                     <span className="text-stone-800">"{redeemingItem.title}"</span>
                    </p>
                    <div className="flex flex-col gap-3">
                      <button 
@@ -1472,20 +1524,6 @@ export default function ChildPortal() {
                </motion.div>
              )}
            </AnimatePresence>
-        </section>
-
-        <section className="px-6 py-12 bg-white rounded-[3rem] border border-stone-100 text-center">
-           <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Mail size={36} className="text-indigo-600" />
-           </div>
-           <h3 className="text-2xl font-display font-black text-stone-800 mb-2">想要别的奖励？</h3>
-           <p className="text-stone-500 font-medium mb-8">在这里写下你的愿望，投递到爸爸妈妈的信箱里！</p>
-           <button 
-             onClick={() => setIsNewWishModalOpen(true)}
-             className="bg-indigo-600 text-white px-10 py-5 rounded-full font-black shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all"
-           >
-              去投递愿望
-           </button>
         </section>
       </div>
     );
@@ -1551,14 +1589,10 @@ export default function ChildPortal() {
                   if (!newWishTitle) return;
                   setIsSubmittingWish(true);
                   
-                  await new Promise(r => setTimeout(r, 1500));
-                  
-                  addNotification({
-                    recipient: 'parent',
-                    type: 'new_wish_suggested',
-                    title: '🎫 孩子投递了新愿望',
-                    message: `${childProfile.nickname} 投递了一个新愿望：“${newWishTitle}”。建议分值：${newWishCost || '未定'}`,
-                    relatedId: 'new_wish'
+                  // 通过自定义路由：创建 rewards 记录 + 通知家长
+                  // 路由会原子地创建 rewards(suggestedBy='child', status='pending') + new_wish_suggested 通知
+                  suggestWish(newWishTitle, parseInt(newWishCost) || 0, {
+                    category: '心愿',
                   });
                   
                   setIsSubmittingWish(false);
@@ -1592,18 +1626,23 @@ export default function ChildPortal() {
       <section className="relative bg-white rounded-[2rem] p-6 flex flex-col items-center overflow-hidden shadow-sm border border-stone-100">
         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-400 to-orange-600 opacity-10 rounded-full -mr-12 -mt-12"></div>
         <div className="relative mb-4">
-          <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-tr from-amber-400 via-orange-500 to-yellow-400 animate-pulse">
-            <div className="w-full h-full rounded-full border-4 border-white overflow-hidden bg-white">
-              <img 
-                src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=b6e3f4" 
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
+          <button onClick={() => setShowAvatarPicker(true)} className="block relative">
+            <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-tr from-amber-400 via-orange-500 to-yellow-400 animate-pulse">
+              <div className="w-full h-full rounded-full border-4 border-white overflow-hidden bg-white">
+                <img
+                  src={getAvatarUrl(childProfile.avatarUrl, childProfile.nickname, childProfileId)}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
-          </div>
-          <div className="absolute -bottom-2 -translate-x-1/2 left-1/2 bg-purple-600 text-white px-3 py-1 rounded-full text-[10px] font-black tracking-widest shadow-lg whitespace-nowrap z-10 uppercase">
-            知识骑士
-          </div>
+            <div className="absolute -bottom-2 -translate-x-1/2 left-1/2 bg-purple-600 text-white px-3 py-1 rounded-full text-[10px] font-black tracking-widest shadow-lg whitespace-nowrap z-10 uppercase">
+              知识骑士
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/30 rounded-full">
+              <span className="text-white text-xs font-bold">点击修改</span>
+            </div>
+          </button>
         </div>
         <h1 className="font-display text-2xl font-black text-stone-800 mb-2 mt-2">{childProfile.nickname || '皮皮'}</h1>
         <div className="w-full max-w-xs mt-4">
@@ -1833,6 +1872,84 @@ export default function ChildPortal() {
   return (
     <div className="min-h-full pb-32">
       <AnimatePresence>
+        {bonusNotification && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              className="bg-gradient-to-br from-red-400 to-orange-500 rounded-[2rem] p-8 max-w-sm w-full text-center shadow-2xl relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={() => {
+                  markNotificationRead(bonusNotification.id);
+                  setBonusNotification(null);
+                }}
+                className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+              <div className="text-6xl mb-4">🧧</div>
+              <h3 className="font-display font-black text-2xl text-white mb-2">惊喜红包</h3>
+              <p className="text-white/90 text-sm mb-6">{bonusNotification.message}</p>
+              <button
+                onClick={() => {
+                  markNotificationRead(bonusNotification.id);
+                  setBonusNotification(null);
+                }}
+                className="bg-white text-red-500 font-black px-8 py-3 rounded-full shadow-lg hover:bg-red-50 transition-colors"
+              >
+                收下祝福
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+        {deductionNotification && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full text-center shadow-2xl border-4 border-red-100 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={() => {
+                  markNotificationRead(deductionNotification.id);
+                  setDeductionNotification(null);
+                }}
+                className="absolute top-4 right-4 w-8 h-8 bg-stone-100 hover:bg-stone-200 rounded-full flex items-center justify-center text-stone-500 transition-colors"
+              >
+                <X size={18} />
+              </button>
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-4xl">📉</span>
+              </div>
+              <h3 className="font-display font-black text-2xl text-stone-800 mb-2">积分扣除</h3>
+              <p className="text-stone-600 text-sm mb-2">{deductionNotification.message}</p>
+              <button
+                onClick={() => {
+                  markNotificationRead(deductionNotification.id);
+                  setDeductionNotification(null);
+                }}
+                className="bg-stone-800 text-white font-black px-8 py-3 rounded-full shadow-lg hover:bg-stone-900 transition-colors mt-4"
+              >
+                我知道了
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
         {activeTaskProcessing && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -1980,7 +2097,7 @@ export default function ChildPortal() {
               </div>
               
               <h3 className="text-3xl font-black text-stone-800 font-display mb-2">恭喜获得奖励！</h3>
-              <p className="text-stone-500 font-bold mb-8 italic">“你的努力被星空刻下了印记”</p>
+              <p className="text-stone-500 font-bold mb-8 italic">"你的努力被星空刻下了印记"</p>
               
               <div className="bg-stone-50 rounded-3xl p-6 mb-8 border border-stone-100">
                 <span className="text-stone-400 text-xs font-black uppercase tracking-widest block mb-1">获得经验/星星</span>
@@ -2036,7 +2153,11 @@ export default function ChildPortal() {
                     <p className="text-stone-400 font-bold">还没有兑换记录哦～<br/>快去完成任务赚星星吧！</p>
                   </div>
                 ) : (
-                  pointHistory.filter(h => h.type === 'spend').map((item) => (
+                  pointHistory
+                    .filter(h => h.type === 'spend')
+                    .slice()
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((item) => (
                     <div key={item.id} className="flex justify-between items-center p-5 bg-white rounded-2xl border border-stone-100 shadow-sm relative overflow-hidden group">
                       <div className="absolute top-0 left-0 w-1 h-full bg-teal-500"></div>
                       <div className="flex items-center gap-4">
@@ -2045,15 +2166,15 @@ export default function ChildPortal() {
                         </div>
                         <div className="space-y-0.5">
                           <p className="font-black text-stone-800 text-sm">{item.reason}</p>
-                          <p className="text-[10px] text-stone-400 font-bold tracking-tight">
-                            {new Date(item.timestamp).toLocaleString('zh-CN', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
+                          <p className="text-[10px] text-stone-400 font-bold italic">
+                          {new Date(item.timestamp).toLocaleString('zh-CN', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -2110,13 +2231,22 @@ export default function ChildPortal() {
                     <p className="text-stone-400 font-bold">还没有积分变动哦～</p>
                   </div>
                 ) : (
-                  pointHistory.map((item) => (
+                  pointHistory
+                    .slice()
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((item) => (
                     <div key={item.id} className="flex justify-between items-center p-4 bg-stone-50 rounded-2xl border border-stone-100">
                       <div className="space-y-1">
-                        <p className="font-bold text-stone-800 text-sm">{item.reason}</p>
+                        <div className="flex items-center gap-2">
+                          {item.reason.includes('红包') && (
+                            <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-50 px-2 py-0.5 rounded-full">惊喜红包</span>
+                          )}
+                          <p className="font-bold text-stone-800 text-sm">{item.reason}</p>
+                        </div>
                         <p className="text-[10px] text-stone-400 font-bold italic">
                           {new Date(item.timestamp).toLocaleString('zh-CN', {
-                            month: 'numeric',
+                            year: 'numeric',
+                            month: 'long',
                             day: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit'
@@ -2186,7 +2316,131 @@ export default function ChildPortal() {
 
 
       {renderNewWishModal()}
-      
+
+      {/* Avatar Upload Modal */}
+      <AnimatePresence>
+        {showAvatarPicker && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 pb-4 flex justify-between items-center">
+                <h3 className="text-2xl font-black text-stone-800 font-display tracking-tight">修改头像</h3>
+                <button
+                  onClick={() => setShowAvatarPicker(false)}
+                  className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 hover:bg-stone-200 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="flex flex-col items-center">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-orange-200 shadow-lg mb-4 bg-stone-100">
+                    {isUploadingAvatar ? (
+                      <div className="w-full h-full flex items-center justify-center bg-stone-100">
+                        <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : (
+                      <img
+                        src={getAvatarUrl(childProfile.avatarUrl, childProfile.nickname, childProfileId)}
+                        alt="Current Avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    if (!file.type.startsWith('image/')) {
+                      alert('请选择图片文件');
+                      return;
+                    }
+
+                    if (file.size > 5 * 1024 * 1024) {
+                      alert('图片大小不能超过 5MB');
+                      return;
+                    }
+
+                    setIsUploadingAvatar(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('avatar', file);
+
+                      const token = localStorage.getItem('pb_token');
+                      // Use relative path so Vite proxy handles it
+                      const res = await fetch(`/api/collections/child_profiles/records/${childProfileId}`, {
+                        method: 'PATCH',
+                        headers: {
+                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                        },
+                        body: formData,
+                      });
+
+                      if (res.ok) {
+                        const data = await res.json();
+                        const filename = data.avatar;
+                        if (filename) {
+                          const avatarUrl = `${pbUrl}/api/files/child_profiles/${childProfileId}/${filename}`;
+                          updateChildProfile({ ...childProfile, avatarUrl });
+                          setShowAvatarPicker(false);
+                          alert('头像上传成功！');
+                        } else {
+                          throw new Error('No avatar returned');
+                        }
+                      } else {
+                        throw new Error('Upload failed');
+                      }
+                    } catch (err) {
+                      console.error('Avatar upload error:', err);
+                      alert('上传失败，请重试');
+                    } finally {
+                      setIsUploadingAvatar(false);
+                    }
+                  }}
+                  className="hidden"
+                />
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isUploadingAvatar ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      上传中...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={18} />
+                      上传新头像
+                    </>
+                  )}
+                </button>
+
+                <p className="text-center text-xs text-stone-400">支持 JPG、PNG、GIF 格式，最大 5MB</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {recordingTaskId && (
           <ReadingRecorder 
