@@ -10,11 +10,31 @@ interface TopBarProps {
 }
 
 export default function TopBar({ title, currentMode, onModeChange }: TopBarProps) {
-  const { notifications, markNotificationRead, markAllNotificationsRead, currentUser, setCurrentUser } = useTasks();
+  const { notifications, markNotificationRead, markAllNotificationsRead, currentUser, logout } = useTasks();
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const parentNotifications = notifications.filter(n => n.recipient === 'parent');
-  const unreadCount = parentNotifications.filter(n => !n.read).length;
+  const isChild = currentUser?.role === 'child';
+  const relevantNotifications = isChild
+    ? notifications.filter(n => n.recipient === 'child')
+    : notifications.filter(n => n.recipient === 'parent');
+  const sortedNotifications = [...relevantNotifications].sort((a, b) =>
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+  const unreadCount = relevantNotifications.filter(n => !n.read).length;
+
+  const formatTime = (ts: string) => {
+    const date = new Date(ts);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes}分钟前`;
+    if (hours < 24) return `${hours}小时前`;
+    if (days < 7) return `${days}天前`;
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  };
 
   return (
     <header className="h-16 glass-header flex justify-between items-center px-4 lg:px-8 shadow-sm">
@@ -30,8 +50,8 @@ export default function TopBar({ title, currentMode, onModeChange }: TopBarProps
         )}
       </div>
       
-      <div className="hidden md:block font-display text-secondary font-extrabold text-xl tracking-tight">育儿导师</div>
-      <div className="md:hidden font-display text-secondary font-extrabold text-lg tracking-tight">育儿导师</div>
+      <div className="hidden md:block font-display text-secondary font-extrabold text-xl min-w-[80px] text-center">K-Daily</div>
+      <div className="md:hidden font-display text-secondary font-extrabold text-lg min-w-[60px] text-center">K-Daily</div>
       
       <div className="flex items-center gap-2 lg:gap-4 w-1/2 lg:w-1/3 justify-end relative">
         <div className="relative flex items-center">
@@ -54,7 +74,7 @@ export default function TopBar({ title, currentMode, onModeChange }: TopBarProps
                 </div>
                 {unreadCount > 0 && (
                   <button 
-                    onClick={() => markAllNotificationsRead('parent')}
+                    onClick={() => markAllNotificationsRead(isChild ? 'child' : 'parent')}
                     className="text-[10px] text-secondary font-bold hover:underline"
                   >
                     全部标为已读
@@ -62,12 +82,15 @@ export default function TopBar({ title, currentMode, onModeChange }: TopBarProps
                 )}
               </div>
               <div className="max-h-64 overflow-y-auto no-scrollbar">
-                {parentNotifications.length === 0 ? (
+                {sortedNotifications.length === 0 ? (
                   <p className="text-center py-6 text-stone-400 font-bold text-xs">暂无消息</p>
                 ) : (
-                  parentNotifications.map(n => (
+                  sortedNotifications.map(n => (
                      <div key={n.id} onClick={() => markNotificationRead(n.id)} className={`p-4 border-b border-stone-50 cursor-pointer transition-colors ${n.read ? 'bg-white' : 'bg-primary/5'}`}>
-                       <h4 className="font-bold text-xs text-stone-800 mb-1">{n.title}</h4>
+                       <div className="flex justify-between items-start">
+                         <h4 className="font-bold text-xs text-stone-800 mb-1 flex-1">{n.title}</h4>
+                         <span className="text-[9px] text-stone-400 ml-2">{formatTime(n.timestamp)}</span>
+                       </div>
                        <p className="text-[10px] text-stone-500">{n.message}</p>
                      </div>
                   ))
@@ -76,21 +99,24 @@ export default function TopBar({ title, currentMode, onModeChange }: TopBarProps
             </div>
           )}
         </div>
-        <button 
-          onClick={() => onModeChange(currentMode === 'parent' ? 'child' : 'parent')}
-          className="group flex items-center gap-2 bg-white/50 hover:bg-white p-1 pr-3 rounded-full border border-stone-200 transition-all active:scale-95 shadow-sm"
-          title={currentMode === 'parent' ? "切换到孩子端" : "切换到家长端"}
-        >
-          <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-secondary">
-            {currentMode === 'parent' ? <User size={16} /> : <Baby size={16} />}
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 hidden sm:block">
-            {currentMode === 'parent' ? '家长' : '孩子'}
-          </span>
-        </button>
+        {/* 模式切换按钮：仅家长账号显示（孩子不能切换到家长端） */}
+        {!isChild && (
+          <button 
+            onClick={() => onModeChange(currentMode === 'parent' ? 'child' : 'parent')}
+            className="group flex items-center gap-2 bg-white/50 hover:bg-white p-1 pr-3 rounded-full border border-stone-200 transition-all active:scale-95 shadow-sm"
+            title={currentMode === 'parent' ? "切换到孩子端" : "切换到家长端"}
+          >
+            <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-secondary">
+              {currentMode === 'parent' ? <User size={16} /> : <Baby size={16} />}
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 hidden sm:block">
+              {currentMode === 'parent' ? '家长' : '孩子'}
+            </span>
+          </button>
+        )}
 
         <button 
-          onClick={() => setCurrentUser(null)}
+          onClick={() => logout()}
           className="w-10 h-10 rounded-full flex items-center justify-center text-stone-300 hover:text-stone-600 hover:bg-stone-50 transition-all ml-1"
           title="退出登录"
         >
