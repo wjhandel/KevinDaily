@@ -6,22 +6,6 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_PB_URL=http://pocketbase:8090
-    depends_on:
-      - pocketbase
+      - VITE_PB_URL=http://192.168.31.10:8091
     restart: unless-stopped
-
-  pocketbase:
-    build:
-      context: .
-      dockerfile: Dockerfile.pocketbase
-    image: kevin-daily-pb:latest
-    container_name: kevin-daily-db
-    ports:
-      - "8091:8090"
-    volumes:
-      - pb_data:/pb_data
-    restart: unless-stopped
-
-volumes:
-  pb_data:
+    network_mode: host
