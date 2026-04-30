@@ -4,8 +4,8 @@ import requests
 import sys
 
 PB_URL = "http://192.168.31.10:8091"
-ADMIN_EMAIL = "admin@yourdomain.com"
-ADMIN_PASSWORD = "yourpassword123"
+ADMIN_EMAIL = "wjhandel@163.com"
+ADMIN_PASSWORD = "Baby0903"
 
 def authenticate():
     response = requests.post(
