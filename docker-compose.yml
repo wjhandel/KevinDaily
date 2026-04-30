@@ -12,7 +12,7 @@ services:
     restart: unless-stopped
 
   pocketbase:
-    image: spectado/pocketbase
+    image: elestio/pocketbase:latest
     container_name: kevin-daily-db
     ports:
       - "8091:8090"
