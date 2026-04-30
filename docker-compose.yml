@@ -12,13 +12,15 @@ services:
     restart: unless-stopped
 
   pocketbase:
-    image: elestio/pocketbase:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.pocketbase
+    image: kevin-daily-pb:latest
     container_name: kevin-daily-db
     ports:
       - "8091:8090"
     volumes:
       - pb_data:/pb_data
-    command: ["serve", "--http=0.0.0.0:8090"]
     restart: unless-stopped
 
 volumes:

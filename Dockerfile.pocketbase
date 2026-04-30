@@ -1,0 +1,29 @@
+# 编译阶段
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache git
+
+# 设置 Go 代理（国内加速）
+ENV GOPROXY=https://goproxy.cn,direct
+
+# 克隆 PocketBase 并切换到指定版本
+RUN git clone https://github.com/pocketbase/pocketbase.git . && \
+    git checkout v0.37.4
+
+# 编译
+RUN go build -o pocketbase ./cmd/pocketbase
+
+# 生产阶段
+FROM alpine:latest
+
+WORKDIR /pb
+
+COPY --from=builder /app/pocketbase /pb/pocketbase
+
+RUN chmod +x /pb/pocketbase
+
+EXPOSE 8090
+
+CMD ["./pocketbase", "serve", "--http=0.0.0.0:8090"]
