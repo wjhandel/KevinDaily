@@ -9,7 +9,7 @@ COPY index.html ./
 COPY public ./public
 COPY src ./src
 
-RUN npm install && npm run build
+RUN npm config set registry https://registry.npmmirror.com && npm install && npm run build
 
 FROM nginx:alpine
 
