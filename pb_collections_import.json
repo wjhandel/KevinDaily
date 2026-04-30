@@ -1,37 +1,28 @@
 [
   {
-    "id": "child_profiles001",
     "name": "child_profiles",
     "type": "base",
     "system": false,
     "schema": [
       {
-        "id": "name_field",
         "name": "name",
         "type": "text",
-        "required": true,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": true
       },
       {
-        "id": "avatar_field",
         "name": "avatar",
         "type": "file",
-        "required": false,
-        "options": { "maxSelect": 1, "maxSize": 10485760, "mimeTypes": ["image/png", "image/jpeg", "image/gif", "image/webp"] }
+        "required": false
       },
       {
-        "id": "points_field",
         "name": "points",
         "type": "number",
-        "required": false,
-        "options": { "min": null, "max": null, "noDecimal": false }
+        "required": false
       },
       {
-        "id": "level_field",
         "name": "level",
         "type": "number",
-        "required": false,
-        "options": { "min": null, "max": null, "noDecimal": false }
+        "required": false
       }
     ],
     "listRule": "",
@@ -41,59 +32,53 @@
     "deleteRule": ""
   },
   {
-    "id": "tasks001",
     "name": "tasks",
     "type": "base",
     "system": false,
     "schema": [
       {
-        "id": "title_field",
         "name": "title",
         "type": "text",
-        "required": true,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": true
       },
       {
-        "id": "desc_field",
         "name": "description",
         "type": "text",
-        "required": false,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": false
       },
       {
-        "id": "pointValue_field",
         "name": "pointValue",
         "type": "number",
-        "required": true,
-        "options": { "min": null, "max": null, "noDecimal": false }
+        "required": true
       },
       {
-        "id": "active_field",
         "name": "active",
         "type": "bool",
-        "required": false,
-        "options": {}
+        "required": false
       },
       {
-        "id": "limitType_field",
         "name": "limitType",
         "type": "select",
         "required": false,
-        "options": { "maxSelect": 1, "values": ["daily", "weekly", "none"] }
+        "options": {
+          "maxSelect": 1,
+          "values": ["daily", "weekly", "none"]
+        }
       },
       {
-        "id": "limitCount_field",
         "name": "limitCount",
         "type": "number",
-        "required": false,
-        "options": { "min": null, "max": null, "noDecimal": false }
+        "required": false
       },
       {
-        "id": "childId_field",
         "name": "childId",
         "type": "relation",
         "required": false,
-        "options": { "collectionId": "child_profiles001", "cascadeDelete": false, "maxSelect": 1 }
+        "options": {
+          "collectionId": "",
+          "cascadeDelete": false,
+          "maxSelect": 1
+        }
       }
     ],
     "listRule": "",
@@ -103,38 +88,34 @@
     "deleteRule": ""
   },
   {
-    "id": "milestones001",
     "name": "milestones",
     "type": "base",
     "system": false,
     "schema": [
       {
-        "id": "title_field",
         "name": "title",
         "type": "text",
-        "required": true,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": true
       },
       {
-        "id": "desc_field",
         "name": "description",
         "type": "text",
-        "required": false,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": false
       },
       {
-        "id": "occurredAt_field",
         "name": "occurredAt",
         "type": "date",
-        "required": false,
-        "options": { "min": "", "max": "" }
+        "required": false
       },
       {
-        "id": "childId_field",
         "name": "childId",
         "type": "relation",
         "required": false,
-        "options": { "collectionId": "child_profiles001", "cascadeDelete": false, "maxSelect": 1 }
+        "options": {
+          "collectionId": "",
+          "cascadeDelete": false,
+          "maxSelect": 1
+        }
       }
     ],
     "listRule": "",
@@ -144,31 +125,24 @@
     "deleteRule": ""
   },
   {
-    "id": "badges001",
     "name": "badges",
     "type": "base",
     "system": false,
     "schema": [
       {
-        "id": "name_field",
         "name": "name",
         "type": "text",
-        "required": true,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": true
       },
       {
-        "id": "desc_field",
         "name": "description",
         "type": "text",
-        "required": false,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": false
       },
       {
-        "id": "icon_field",
         "name": "icon",
         "type": "text",
-        "required": false,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": false
       }
     ],
     "listRule": "",
@@ -178,31 +152,34 @@
     "deleteRule": ""
   },
   {
-    "id": "child_badges001",
     "name": "child_badges",
     "type": "base",
     "system": false,
     "schema": [
       {
-        "id": "childId_field",
         "name": "childId",
         "type": "relation",
         "required": false,
-        "options": { "collectionId": "child_profiles001", "cascadeDelete": false, "maxSelect": 1 }
+        "options": {
+          "collectionId": "",
+          "cascadeDelete": false,
+          "maxSelect": 1
+        }
       },
       {
-        "id": "badgeId_field",
         "name": "badgeId",
         "type": "relation",
         "required": false,
-        "options": { "collectionId": "badges001", "cascadeDelete": false, "maxSelect": 1 }
+        "options": {
+          "collectionId": "",
+          "cascadeDelete": false,
+          "maxSelect": 1
+        }
       },
       {
-        "id": "earnedAt_field",
         "name": "earnedAt",
         "type": "date",
-        "required": false,
-        "options": { "min": "", "max": "" }
+        "required": false
       }
     ],
     "listRule": "",
@@ -212,38 +189,29 @@
     "deleteRule": ""
   },
   {
-    "id": "rewards001",
     "name": "rewards",
     "type": "base",
     "system": false,
     "schema": [
       {
-        "id": "name_field",
         "name": "name",
         "type": "text",
-        "required": true,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": true
       },
       {
-        "id": "desc_field",
         "name": "description",
         "type": "text",
-        "required": false,
-        "options": { "max": null, "min": null, "pattern": "" }
+        "required": false
       },
       {
-        "id": "pointsCost_field",
         "name": "pointsCost",
         "type": "number",
-        "required": true,
-        "options": { "min": null, "max": null, "noDecimal": false }
+        "required": true
       },
       {
-        "id": "active_field",
         "name": "active",
         "type": "bool",
-        "required": false,
-        "options": {}
+        "required": false
       }
     ],
     "listRule": "",
