@@ -20,7 +20,7 @@ def authenticate():
 
 def import_collections(token, collections):
     headers = {
-        "Authorization": f"Admin {token}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
 
