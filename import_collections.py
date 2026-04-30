@@ -5,10 +5,9 @@ import sys
 
 PB_URL = "http://192.168.31.10:8091"
 ADMIN_EMAIL = "wjhandel@163.com"
-ADMIN_PASSWORD = "Baby0903"
+ADMIN_PASSWORD = "Baby09030913"
 
 def authenticate():
-    # PocketBase v0.22+ 使用的认证端点
     response = requests.post(
         f"{PB_URL}/api/admins/auth-with-password",
         json={"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
@@ -17,16 +16,7 @@ def authenticate():
         return response.json()["token"]
     else:
         print(f"Authentication failed: {response.status_code} - {response.text}")
-        # 尝试备用端点
-        response = requests.post(
-            f"{PB_URL}/api/collections/admins/auth-with-password",
-            json={"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
-        )
-        if response.status_code == 200:
-            return response.json()["token"]
-        else:
-            print(f"Backup auth also failed: {response.status_code} - {response.text}")
-            sys.exit(1)
+        sys.exit(1)
 
 def import_collections(token, collections):
     headers = {
