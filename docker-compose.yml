@@ -15,7 +15,7 @@ services:
     image: spectado/pocketbase
     container_name: kevin-daily-db
     ports:
-      - "8090:8090"
+      - "8091:8090"
     volumes:
       - pb_data:/pb_data
     command: ["serve", "--http=0.0.0.0:8090"]
