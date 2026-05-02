@@ -29,7 +29,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-  const { tasks, submissions, points, addPoints, deductPoints, addNotification, childProfile, deductionItems, applyDeduction, pointHistory } = useTasks();
+  const { tasks, submissions, points, addPoints, deductPoints, addNotification, childProfile, deductionItems = [], applyDeduction, pointHistory } = useTasks();
 
   const [rewardAmount, setRewardAmount] = React.useState<string>('');
   const [rewardNote, setRewardNote] = React.useState<string>('');

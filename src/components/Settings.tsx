@@ -58,7 +58,7 @@ export default function Settings() {
     updateSystemSettings,
     articles,
     removeArticle,
-    deductionItems,
+    deductionItems = [],
     updateDeductionItem,
     addDeductionItem,
     removeDeductionItem,
