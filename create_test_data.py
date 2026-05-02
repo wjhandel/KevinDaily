@@ -4,18 +4,32 @@ import sys
 
 PB_URL = "http://192.168.31.10:8091"
 ADMIN_EMAIL = "wjhandel@163.com"
-ADMIN_PASSWORD = "Baby0903"
+ADMIN_PASSWORD = "50394289"
 
 def authenticate():
-    response = requests.post(
+    # Try different auth endpoints
+    endpoints = [
         f"{PB_URL}/api/admins/auth-with-password",
-        json={"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
-    )
-    if response.status_code == 200:
-        return response.json()["token"]
-    else:
-        print(f"Authentication failed: {response.status_code} - {response.text}")
-        sys.exit(1)
+        f"{PB_URL}/api/collections/admins/auth-with-password",
+        f"{PB_URL}/api/auth-with-password",
+    ]
+
+    data = {"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
+
+    for endpoint in endpoints:
+        print(f"Trying {endpoint}...")
+        try:
+            response = requests.post(endpoint, json=data, timeout=5)
+            if response.status_code == 200:
+                print(f"  ✓ Authentication successful!")
+                return response.json()["token"]
+            else:
+                print(f"  ✗ Failed: {response.status_code}")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
+
+    print("All auth endpoints failed.")
+    sys.exit(1)
 
 def create_child_profile(token):
     headers = {
@@ -36,7 +50,8 @@ def create_child_profile(token):
     response = requests.post(
         f"{PB_URL}/api/collections/child_profiles/records",
         headers=headers,
-        json=data
+        json=data,
+        timeout=5
     )
     if response.status_code == 200:
         print(f"  ✓ Child profile created: {response.json()['id']}")
@@ -65,7 +80,8 @@ def create_tasks(token, child_id):
         response = requests.post(
             f"{PB_URL}/api/collections/tasks/records",
             headers=headers,
-            json=task
+            json=task,
+            timeout=5
         )
         if response.status_code == 200:
             print(f"  ✓ Task created: {task['title']}")
@@ -89,7 +105,8 @@ def create_badges(token):
         response = requests.post(
             f"{PB_URL}/api/collections/badges/records",
             headers=headers,
-            json=badge
+            json=badge,
+            timeout=5
         )
         if response.status_code == 200:
             print(f"  ✓ Badge created: {badge['name']}")
@@ -113,7 +130,8 @@ def create_rewards(token):
         response = requests.post(
             f"{PB_URL}/api/collections/rewards/records",
             headers=headers,
-            json=reward
+            json=reward,
+            timeout=5
         )
         if response.status_code == 200:
             print(f"  ✓ Reward created: {reward['name']}")
@@ -121,9 +139,8 @@ def create_rewards(token):
             print(f"  ✗ Failed: {reward['name']} - {response.text}")
 
 def main():
-    print("Authenticating with PocketBase...")
+    print(f"Connecting to PocketBase at {PB_URL}...")
     token = authenticate()
-    print("Authentication successful!\n")
 
     child_id = create_child_profile(token)
     if child_id:
