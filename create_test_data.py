@@ -20,62 +20,6 @@ def authenticate():
         print(f"Authentication failed: {response.status_code} - {response.text}")
         sys.exit(1)
 
-def create_child_profile(token):
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "parent": PARENT_USER_ID,
-        "nickname": "小明",
-        "birthDate": "2018-01-01",
-        "gender": "boy",
-        "points": 100
-    }
-
-    print("Creating child profile...")
-    response = requests.post(
-        f"{PB_URL}/api/collections/child_profiles/records",
-        headers=headers,
-        json=data,
-        timeout=10
-    )
-    if response.status_code == 200:
-        print(f"  ✓ Child profile created: {response.json()['id']}")
-        return response.json()['id']
-    else:
-        print(f"  ✗ Failed: {response.status_code} - {response.text}")
-        return None
-
-def create_tasks(token):
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-
-    tasks = [
-        {"title": "早起打卡", "desc": "早晨7:30前起床并整理床铺", "reward": 10, "recurrence": "daily", "active": True},
-        {"title": "跳绳500个", "desc": "增强体质", "reward": 25, "recurrence": "daily", "active": True},
-        {"title": "Anki单词复习", "desc": "高效复习英语生词", "reward": 30, "recurrence": "daily", "active": True},
-        {"title": "多邻国完成1单元", "desc": "保持连胜", "reward": 15, "recurrence": "weekly", "active": True},
-        {"title": "整理书桌", "desc": "保持学习环境整洁", "reward": 5, "recurrence": "daily", "active": True},
-    ]
-
-    print("Creating tasks...")
-    for task in tasks:
-        task["parent"] = PARENT_USER_ID
-        response = requests.post(
-            f"{PB_URL}/api/collections/tasks/records",
-            headers=headers,
-            json=task,
-            timeout=10
-        )
-        if response.status_code == 200:
-            print(f"  ✓ Task created: {task['title']}")
-        else:
-            print(f"  ✗ Failed: {task['title']} - {response.text}")
-
 def create_badges(token):
     headers = {
         "Authorization": f"Bearer {token}",
@@ -83,9 +27,9 @@ def create_badges(token):
     }
 
     badges = [
-        {"name": "早起鸟", "description": "连续7天早起打卡", "icon": "🐦", "color": "#4CAF50", "iconColor": "#4CAF50", "isActive": True},
-        {"name": "运动达人", "description": "完成10次运动任务", "icon": "🏃", "color": "#2196F3", "iconColor": "#2196F3", "isActive": True},
-        {"name": "学习标兵", "description": "连续7天完成学习任务", "icon": "📚", "color": "#9C27B0", "iconColor": "#9C27B0", "isActive": True},
+        {"name": "早起鸟", "description": "连续7天早起打卡", "icon": "🐦", "color": "#4CAF50", "iconColor": "#4CAF50", "condition_type": "streak", "condition_value": "7", "isActive": True},
+        {"name": "运动达人", "description": "完成10次运动任务", "icon": "🏃", "color": "#2196F3", "iconColor": "#2196F3", "condition_type": "count", "condition_value": "10", "isActive": True},
+        {"name": "学习标兵", "description": "连续7天完成学习任务", "icon": "📚", "color": "#9C27B0", "iconColor": "#9C27B0", "condition_type": "streak", "condition_value": "7", "isActive": True},
     ]
 
     print("Creating badges...")
@@ -108,9 +52,9 @@ def create_rewards(token):
     }
 
     rewards = [
-        {"title": "30分钟游戏时间", "desc": "兑换30分钟游戏时间", "cost": 50, "status": "active", "stock": 10},
-        {"title": "冰淇淋", "desc": "美味的冰淇淋一个", "cost": 30, "status": "active", "stock": 5},
-        {"title": "周末电影", "desc": "周末看一部电影", "cost": 100, "status": "active", "stock": 2},
+        {"title": "30分钟游戏时间", "desc": "兑换30分钟游戏时间", "cost": 50, "status": "available", "stock": 10},
+        {"title": "冰淇淋", "desc": "美味的冰淇淋一个", "cost": 30, "status": "available", "stock": 5},
+        {"title": "周末电影", "desc": "周末看一部电影", "cost": 100, "status": "available", "stock": 2},
     ]
 
     print("Creating rewards...")
@@ -132,8 +76,6 @@ def main():
     token = authenticate()
     print("Authentication successful!\n")
 
-    child_id = create_child_profile(token)
-    create_tasks(token)
     create_badges(token)
     create_rewards(token)
 
