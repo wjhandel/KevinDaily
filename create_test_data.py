@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import requests
 import sys
-import json
 
 PB_URL = "http://192.168.31.10:8091"
 ADMIN_EMAIL = "wjhandel@163.com"
 ADMIN_PASSWORD = "50394289"
+
+# Parent user ID (test2@test.com)
+PARENT_USER_ID = "t7at49lq14x7r52"
 
 def authenticate():
     response = requests.post(
@@ -18,35 +20,14 @@ def authenticate():
         print(f"Authentication failed: {response.status_code} - {response.text}")
         sys.exit(1)
 
-def get_user_id(token):
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-
-    # List users to find our user
-    response = requests.get(
-        f"{PB_URL}/api/collections/users/records",
-        headers=headers,
-        timeout=10
-    )
-    if response.status_code == 200:
-        data = response.json()
-        items = data.get("items", [])
-        for user in items:
-            if user.get("email") == ADMIN_EMAIL:
-                return user["id"]
-    print(f"Could not find user ID")
-    return None
-
-def create_child_profile(token, parent_id):
+def create_child_profile(token):
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
 
     data = {
-        "parent": parent_id,
+        "parent": PARENT_USER_ID,
         "nickname": "小明",
         "birthDate": "2018-01-01",
         "gender": "boy",
@@ -67,84 +48,83 @@ def create_child_profile(token, parent_id):
         print(f"  ✗ Failed: {response.status_code} - {response.text}")
         return None
 
+def get_tasks_fields(token):
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{PB_URL}/api/collections/tasks", headers=headers, timeout=10)
+    if resp.status_code == 200:
+        fields = resp.json().get("fields", [])
+        field_names = [f["name"] for f in fields]
+        print(f"Tasks fields: {field_names}")
+        return field_names
+    return []
+
 def create_tasks(token, child_id):
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
 
-    # First check what fields tasks collection has
-    print("Checking tasks collection structure...")
-    resp = requests.get(f"{PB_URL}/api/collections/tasks", headers=headers, timeout=10)
-    if resp.status_code == 200:
-        fields = resp.json().get("fields", [])
-        field_names = [f["name"] for f in fields]
-        print(f"  Tasks fields: {field_names}")
+    # Get actual fields
+    field_names = get_tasks_fields(token)
 
-    tasks = [
-        {"title": "早起打卡", "description": "早晨7:30前起床并整理床铺", "pointValue": 10, "limitType": "daily"},
-        {"title": "跳绳500个", "description": "增强体质", "pointValue": 25, "limitType": "daily"},
-        {"title": "Anki单词复习", "description": "高效复习英语生词", "pointValue": 30, "limitType": "daily"},
-        {"title": "多邻国完成1单元", "description": "保持连胜", "pointValue": 15, "limitType": "weekly"},
-        {"title": "整理书桌", "description": "保持学习环境整洁", "pointValue": 5, "limitType": "daily"},
-    ]
+    # Build task with actual field names
+    task_data = {}
+    if "title" in field_names:
+        task_data["title"] = "早起打卡"
+    if "description" in field_names:
+        task_data["description"] = "早晨7:30前起床并整理床铺"
+    if "pointValue" in field_names:
+        task_data["pointValue"] = 10
+    if "limitType" in field_names:
+        task_data["limitType"] = "daily"
+    if "childId" in field_names:
+        task_data["childId"] = child_id
 
-    print("Creating tasks...")
-    for task in tasks:
-        task["childId"] = child_id
-        response = requests.post(
-            f"{PB_URL}/api/collections/tasks/records",
-            headers=headers,
-            json=task,
-            timeout=10
-        )
-        if response.status_code == 200:
-            print(f"  ✓ Task created: {task['title']}")
-        else:
-            print(f"  ✗ Failed: {task['title']} - {response.text}")
+    print(f"Creating tasks with data: {task_data}")
+    response = requests.post(
+        f"{PB_URL}/api/collections/tasks/records",
+        headers=headers,
+        json=task_data,
+        timeout=10
+    )
+    if response.status_code == 200:
+        print(f"  ✓ Task created")
+    else:
+        print(f"  ✗ Failed: {response.status_code} - {response.text}")
 
-def check_and_create_collections(token):
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-
-    # Check badges collection
-    print("\nChecking badges collection...")
+def get_badges_fields(token):
+    headers = {"Authorization": f"Bearer {token}"}
     resp = requests.get(f"{PB_URL}/api/collections/badges", headers=headers, timeout=10)
     if resp.status_code == 200:
         fields = resp.json().get("fields", [])
         field_names = [f["name"] for f in fields]
-        print(f"  Badges fields: {field_names}")
+        print(f"Badges fields: {field_names}")
+        return field_names
+    return []
 
-    # Check rewards collection
-    print("\nChecking rewards collection...")
+def get_rewards_fields(token):
+    headers = {"Authorization": f"Bearer {token}"}
     resp = requests.get(f"{PB_URL}/api/collections/rewards", headers=headers, timeout=10)
     if resp.status_code == 200:
         fields = resp.json().get("fields", [])
         field_names = [f["name"] for f in fields]
-        print(f"  Rewards fields: {field_names}")
+        print(f"Rewards fields: {field_names}")
+        return field_names
+    return []
 
 def main():
     print(f"Connecting to PocketBase at {PB_URL}...")
     token = authenticate()
     print("Authentication successful!\n")
 
-    # Get user ID
-    print("Getting user ID...")
-    user_id = get_user_id(token)
-    if not user_id:
-        print("Failed to get user ID")
-        return
-    print(f"  User ID: {user_id}")
-
-    # Check collections structure
-    check_and_create_collections(token)
-
     # Create child profile
-    child_id = create_child_profile(token, user_id)
+    child_id = create_child_profile(token)
     if child_id:
         create_tasks(token, child_id)
+
+    # Show fields for other collections
+    get_badges_fields(token)
+    get_rewards_fields(token)
 
     print("\nDone!")
 
