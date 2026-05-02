@@ -48,85 +48,96 @@ def create_child_profile(token):
         print(f"  ✗ Failed: {response.status_code} - {response.text}")
         return None
 
-def get_tasks_fields(token):
-    headers = {"Authorization": f"Bearer {token}"}
-    resp = requests.get(f"{PB_URL}/api/collections/tasks", headers=headers, timeout=10)
-    if resp.status_code == 200:
-        fields = resp.json().get("fields", [])
-        field_names = [f["name"] for f in fields]
-        print(f"Tasks fields: {field_names}")
-        return field_names
-    return []
-
-def create_tasks(token, child_id):
+def create_tasks(token):
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
 
-    # Get actual fields
-    field_names = get_tasks_fields(token)
+    tasks = [
+        {"title": "早起打卡", "desc": "早晨7:30前起床并整理床铺", "reward": 10, "recurrence": "daily", "active": True},
+        {"title": "跳绳500个", "desc": "增强体质", "reward": 25, "recurrence": "daily", "active": True},
+        {"title": "Anki单词复习", "desc": "高效复习英语生词", "reward": 30, "recurrence": "daily", "active": True},
+        {"title": "多邻国完成1单元", "desc": "保持连胜", "reward": 15, "recurrence": "weekly", "active": True},
+        {"title": "整理书桌", "desc": "保持学习环境整洁", "reward": 5, "recurrence": "daily", "active": True},
+    ]
 
-    # Build task with actual field names
-    task_data = {}
-    if "title" in field_names:
-        task_data["title"] = "早起打卡"
-    if "description" in field_names:
-        task_data["description"] = "早晨7:30前起床并整理床铺"
-    if "pointValue" in field_names:
-        task_data["pointValue"] = 10
-    if "limitType" in field_names:
-        task_data["limitType"] = "daily"
-    if "childId" in field_names:
-        task_data["childId"] = child_id
+    print("Creating tasks...")
+    for task in tasks:
+        task["parent"] = PARENT_USER_ID
+        response = requests.post(
+            f"{PB_URL}/api/collections/tasks/records",
+            headers=headers,
+            json=task,
+            timeout=10
+        )
+        if response.status_code == 200:
+            print(f"  ✓ Task created: {task['title']}")
+        else:
+            print(f"  ✗ Failed: {task['title']} - {response.text}")
 
-    print(f"Creating tasks with data: {task_data}")
-    response = requests.post(
-        f"{PB_URL}/api/collections/tasks/records",
-        headers=headers,
-        json=task_data,
-        timeout=10
-    )
-    if response.status_code == 200:
-        print(f"  ✓ Task created")
-    else:
-        print(f"  ✗ Failed: {response.status_code} - {response.text}")
+def create_badges(token):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
 
-def get_badges_fields(token):
-    headers = {"Authorization": f"Bearer {token}"}
-    resp = requests.get(f"{PB_URL}/api/collections/badges", headers=headers, timeout=10)
-    if resp.status_code == 200:
-        fields = resp.json().get("fields", [])
-        field_names = [f["name"] for f in fields]
-        print(f"Badges fields: {field_names}")
-        return field_names
-    return []
+    badges = [
+        {"name": "早起鸟", "description": "连续7天早起打卡", "icon": "🐦", "color": "#4CAF50", "iconColor": "#4CAF50", "isActive": True},
+        {"name": "运动达人", "description": "完成10次运动任务", "icon": "🏃", "color": "#2196F3", "iconColor": "#2196F3", "isActive": True},
+        {"name": "学习标兵", "description": "连续7天完成学习任务", "icon": "📚", "color": "#9C27B0", "iconColor": "#9C27B0", "isActive": True},
+    ]
 
-def get_rewards_fields(token):
-    headers = {"Authorization": f"Bearer {token}"}
-    resp = requests.get(f"{PB_URL}/api/collections/rewards", headers=headers, timeout=10)
-    if resp.status_code == 200:
-        fields = resp.json().get("fields", [])
-        field_names = [f["name"] for f in fields]
-        print(f"Rewards fields: {field_names}")
-        return field_names
-    return []
+    print("Creating badges...")
+    for badge in badges:
+        response = requests.post(
+            f"{PB_URL}/api/collections/badges/records",
+            headers=headers,
+            json=badge,
+            timeout=10
+        )
+        if response.status_code == 200:
+            print(f"  ✓ Badge created: {badge['name']}")
+        else:
+            print(f"  ✗ Failed: {badge['name']} - {response.text}")
+
+def create_rewards(token):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    rewards = [
+        {"title": "30分钟游戏时间", "desc": "兑换30分钟游戏时间", "cost": 50, "status": "active", "stock": 10},
+        {"title": "冰淇淋", "desc": "美味的冰淇淋一个", "cost": 30, "status": "active", "stock": 5},
+        {"title": "周末电影", "desc": "周末看一部电影", "cost": 100, "status": "active", "stock": 2},
+    ]
+
+    print("Creating rewards...")
+    for reward in rewards:
+        reward["parent"] = PARENT_USER_ID
+        response = requests.post(
+            f"{PB_URL}/api/collections/rewards/records",
+            headers=headers,
+            json=reward,
+            timeout=10
+        )
+        if response.status_code == 200:
+            print(f"  ✓ Reward created: {reward['title']}")
+        else:
+            print(f"  ✗ Failed: {reward['title']} - {response.text}")
 
 def main():
     print(f"Connecting to PocketBase at {PB_URL}...")
     token = authenticate()
     print("Authentication successful!\n")
 
-    # Create child profile
     child_id = create_child_profile(token)
-    if child_id:
-        create_tasks(token, child_id)
+    create_tasks(token)
+    create_badges(token)
+    create_rewards(token)
 
-    # Show fields for other collections
-    get_badges_fields(token)
-    get_rewards_fields(token)
-
-    print("\nDone!")
+    print("\nDone! All test data created successfully.")
 
 if __name__ == "__main__":
     main()
