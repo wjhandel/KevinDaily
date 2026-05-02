@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import requests
 import sys
+import json
 
 PB_URL = "http://192.168.31.10:8091"
 ADMIN_EMAIL = "wjhandel@163.com"
@@ -17,19 +18,39 @@ def authenticate():
         print(f"Authentication failed: {response.status_code} - {response.text}")
         sys.exit(1)
 
-def create_child_profile(token):
+def get_user_id(token):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    # List users to find our user
+    response = requests.get(
+        f"{PB_URL}/api/collections/users/records",
+        headers=headers,
+        timeout=10
+    )
+    if response.status_code == 200:
+        data = response.json()
+        items = data.get("items", [])
+        for user in items:
+            if user.get("email") == ADMIN_EMAIL:
+                return user["id"]
+    print(f"Could not find user ID")
+    return None
+
+def create_child_profile(token, parent_id):
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
 
     data = {
-        "name": "小明",
-        "nickname": "Kevin",
-        "points": 100,
-        "level": 1,
+        "parent": parent_id,
+        "nickname": "小明",
         "birthDate": "2018-01-01",
-        "gender": "boy"
+        "gender": "boy",
+        "points": 100
     }
 
     print("Creating child profile...")
@@ -52,12 +73,20 @@ def create_tasks(token, child_id):
         "Content-Type": "application/json"
     }
 
+    # First check what fields tasks collection has
+    print("Checking tasks collection structure...")
+    resp = requests.get(f"{PB_URL}/api/collections/tasks", headers=headers, timeout=10)
+    if resp.status_code == 200:
+        fields = resp.json().get("fields", [])
+        field_names = [f["name"] for f in fields]
+        print(f"  Tasks fields: {field_names}")
+
     tasks = [
-        {"title": "早起打卡", "description": "早晨7:30前起床并整理床铺", "pointValue": 10, "limitType": "daily", "active": True},
-        {"title": "跳绳500个", "description": "增强体质", "pointValue": 25, "limitType": "daily", "active": True},
-        {"title": "Anki单词复习", "description": "高效复习英语生词", "pointValue": 30, "limitType": "daily", "active": True},
-        {"title": "多邻国完成1单元", "description": "保持连胜", "pointValue": 15, "limitType": "weekly", "active": True},
-        {"title": "整理书桌", "description": "保持学习环境整洁", "pointValue": 5, "limitType": "daily", "active": True},
+        {"title": "早起打卡", "description": "早晨7:30前起床并整理床铺", "pointValue": 10, "limitType": "daily"},
+        {"title": "跳绳500个", "description": "增强体质", "pointValue": 25, "limitType": "daily"},
+        {"title": "Anki单词复习", "description": "高效复习英语生词", "pointValue": 30, "limitType": "daily"},
+        {"title": "多邻国完成1单元", "description": "保持连胜", "pointValue": 15, "limitType": "weekly"},
+        {"title": "整理书桌", "description": "保持学习环境整洁", "pointValue": 5, "limitType": "daily"},
     ]
 
     print("Creating tasks...")
@@ -74,69 +103,50 @@ def create_tasks(token, child_id):
         else:
             print(f"  ✗ Failed: {task['title']} - {response.text}")
 
-def create_badges(token):
+def check_and_create_collections(token):
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
 
-    badges = [
-        {"name": "早起鸟", "description": "连续7天早起打卡", "icon": "🐦"},
-        {"name": "运动达人", "description": "完成10次运动任务", "icon": "🏃"},
-        {"name": "学习标兵", "description": "连续7天完成学习任务", "icon": "📚"},
-    ]
+    # Check badges collection
+    print("\nChecking badges collection...")
+    resp = requests.get(f"{PB_URL}/api/collections/badges", headers=headers, timeout=10)
+    if resp.status_code == 200:
+        fields = resp.json().get("fields", [])
+        field_names = [f["name"] for f in fields]
+        print(f"  Badges fields: {field_names}")
 
-    print("Creating badges...")
-    for badge in badges:
-        response = requests.post(
-            f"{PB_URL}/api/collections/badges/records",
-            headers=headers,
-            json=badge,
-            timeout=10
-        )
-        if response.status_code == 200:
-            print(f"  ✓ Badge created: {badge['name']}")
-        else:
-            print(f"  ✗ Failed: {badge['name']} - {response.text}")
-
-def create_rewards(token):
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-
-    rewards = [
-        {"name": "30分钟游戏时间", "description": "兑换30分钟游戏时间", "pointsCost": 50, "active": True},
-        {"name": "冰淇淋", "description": "美味的冰淇淋一个", "pointsCost": 30, "active": True},
-        {"name": "周末电影", "description": "周末看一部电影", "pointsCost": 100, "active": True},
-    ]
-
-    print("Creating rewards...")
-    for reward in rewards:
-        response = requests.post(
-            f"{PB_URL}/api/collections/rewards/records",
-            headers=headers,
-            json=reward,
-            timeout=10
-        )
-        if response.status_code == 200:
-            print(f"  ✓ Reward created: {reward['name']}")
-        else:
-            print(f"  ✗ Failed: {reward['name']} - {response.text}")
+    # Check rewards collection
+    print("\nChecking rewards collection...")
+    resp = requests.get(f"{PB_URL}/api/collections/rewards", headers=headers, timeout=10)
+    if resp.status_code == 200:
+        fields = resp.json().get("fields", [])
+        field_names = [f["name"] for f in fields]
+        print(f"  Rewards fields: {field_names}")
 
 def main():
     print(f"Connecting to PocketBase at {PB_URL}...")
     token = authenticate()
     print("Authentication successful!\n")
 
-    child_id = create_child_profile(token)
+    # Get user ID
+    print("Getting user ID...")
+    user_id = get_user_id(token)
+    if not user_id:
+        print("Failed to get user ID")
+        return
+    print(f"  User ID: {user_id}")
+
+    # Check collections structure
+    check_and_create_collections(token)
+
+    # Create child profile
+    child_id = create_child_profile(token, user_id)
     if child_id:
         create_tasks(token, child_id)
 
-    create_badges(token)
-    create_rewards(token)
-
-    print("\nDone! All test data created successfully.")
+    print("\nDone!")
 
 if __name__ == "__main__":
     main()
