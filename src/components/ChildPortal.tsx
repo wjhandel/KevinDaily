@@ -135,7 +135,7 @@ export default function ChildPortal() {
     return icons[iconName] || Star;
   };
 
-  const earnedBadgeIds = new Set(childBadges.map(cb => cb.badge));
+  const earnedBadgeIds = new Set((childBadges || []).map((cb: any) => cb.badge));
 
   React.useEffect(() => {
     if (!childProfile) return;
@@ -225,7 +225,7 @@ export default function ChildPortal() {
 
   const currentStreak = calculateStreak();
 
-  const childNotifications = notifications.filter(n => n.recipient === 'child');
+  const childNotifications = (notifications || []).filter(n => n.recipient === 'child');
   const unreadCount = childNotifications.filter(n => !n.read).length;
 
   const getWeeklyProgress = () => {
