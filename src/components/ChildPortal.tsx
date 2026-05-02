@@ -58,8 +58,8 @@ const getAvatarUrl = (avatarUrl?: string, nickname?: string, childProfileId?: st
   if (avatarUrl.startsWith('http')) {
     return avatarUrl;
   }
-  // Use localhost for PocketBase file URLs (works with Vite proxy in dev)
-  return `http://127.0.0.1:8090/api/files/child_profiles/${childProfileId}/${avatarUrl}`;
+  const pbUrl = import.meta.env.VITE_PB_URL || 'http://localhost:8090';
+  return `${pbUrl}/api/files/child_profiles/${childProfileId}/${avatarUrl}`;
 };
 
 export default function ChildPortal() {
@@ -2383,8 +2383,8 @@ export default function ChildPortal() {
                       formData.append('avatar', file);
 
                       const token = localStorage.getItem('pb_token');
-                      // Use relative path so Vite proxy handles it
-                      const res = await fetch(`/api/collections/child_profiles/records/${childProfileId}`, {
+                      const pbUrl = import.meta.env.VITE_PB_URL || 'http://localhost:8090';
+                      const res = await fetch(`${pbUrl}/api/collections/child_profiles/records/${childProfileId}`, {
                         method: 'PATCH',
                         headers: {
                           ...(token ? { Authorization: `Bearer ${token}` } : {}),

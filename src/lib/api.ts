@@ -3,6 +3,12 @@
  * 集中管理认证头和 API 调用
  */
 
+const PB_URL = import.meta.env.VITE_PB_URL || 'http://localhost:8090';
+
+export function getPbUrl(): string {
+  return PB_URL;
+}
+
 export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('pb_token');
   return {
@@ -12,7 +18,8 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 export async function apiGet(url: string): Promise<any> {
-  const res = await fetch(url, { headers: getAuthHeaders() });
+  const fullUrl = url.startsWith('http') ? url : `${PB_URL}${url}`;
+  const res = await fetch(fullUrl, { headers: getAuthHeaders() });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: `API error: ${res.status}` }));
     throw new Error(err.message || `API error: ${res.status}`);
@@ -21,7 +28,8 @@ export async function apiGet(url: string): Promise<any> {
 }
 
 export async function apiPost(url: string, body: any): Promise<any> {
-  const res = await fetch(url, {
+  const fullUrl = url.startsWith('http') ? url : `${PB_URL}${url}`;
+  const res = await fetch(fullUrl, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -34,7 +42,8 @@ export async function apiPost(url: string, body: any): Promise<any> {
 }
 
 export async function apiPatch(url: string, body: any): Promise<any> {
-  const res = await fetch(url, {
+  const fullUrl = url.startsWith('http') ? url : `${PB_URL}${url}`;
+  const res = await fetch(fullUrl, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -47,7 +56,8 @@ export async function apiPatch(url: string, body: any): Promise<any> {
 }
 
 export async function apiDelete(url: string): Promise<void> {
-  const res = await fetch(url, {
+  const fullUrl = url.startsWith('http') ? url : `${PB_URL}${url}`;
+  const res = await fetch(fullUrl, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
@@ -61,7 +71,8 @@ export function extractItems(data: any): any[] {
   return data?.items || data || [];
 }
 
-/** 上传文件到 PocketBase
+/**
+ * 上传文件到 PocketBase
  * @param collectionIdOrName 集合 ID 或名称
  * @param recordId 记录 ID（如果是更新已有记录）
  * @param fieldName 字段名
@@ -88,12 +99,12 @@ export async function apiUpload(
     });
   }
 
-  const url = recordId
-    ? `/api/collections/${collectionIdOrName}/records/${recordId}`
-    : `/api/collections/${collectionIdOrName}/records`;
+  const baseUrl = recordId
+    ? `${PB_URL}/api/collections/${collectionIdOrName}/records/${recordId}`
+    : `${PB_URL}/api/collections/${collectionIdOrName}/records`;
 
-  const res = await fetch(url, {
-    method: 'POST', // PocketBase uses POST for both create and update with files
+  const res = await fetch(baseUrl, {
+    method: 'POST',
     headers: {
       ...(token ? { Authorization: token } : {}),
     },
