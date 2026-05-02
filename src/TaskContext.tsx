@@ -1,6 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Sun, Dumbbell, BookOpen, Languages, GraduationCap, Gamepad2, Pizza, Ticket, Gift, Coffee } from 'lucide-react';
 import { Task, Submission, AppNotification, ChildProfile, PointTransaction, Reward, User, InvitationCode, SystemSettings, Article, VocabularyWord } from './types';
+
+const PB_URL = import.meta.env.VITE_PB_URL || 'http://localhost:8090';
+
+const getPbToken = () => localStorage.getItem('pb_token');
 
 const INITIAL_TASKS: Task[] = [
   { id: '1', title: '早起打卡', desc: '早晨7:30前起床并整理床铺。', reward: 10, category: '习惯', requireAudio: false, requirePhoto: true, recurrence: 'daily', color: 'bg-orange-100', icon: Sun, iconColor: 'text-orange-600', active: true, isQuickIn: true },
@@ -124,6 +128,85 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     isRegistrationOpen: true,
     defaultPointsForNewChild: 100
   });
+
+  const loadDataFromPocketBase = async () => {
+    const token = getPbToken();
+    if (!token) return;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+
+    try {
+      // Load child profiles
+      const childRes = await fetch(`${PB_URL}/api/collections/child_profiles/records`, { headers });
+      if (childRes.ok) {
+        const childData = await childRes.json();
+        const items = childData.items || [];
+        if (items.length > 0) {
+          const profile = items[0];
+          setChildProfile({
+            id: profile.id,
+            nickname: profile.nickname || profile.name || '孩子',
+            birthDate: profile.birthDate || '',
+            gender: profile.gender || 'boy',
+            avatarUrl: profile.avatar ? `${PB_URL}/api/files/child_profiles/${profile.id}/${profile.avatar}` : ''
+          });
+          setPoints(profile.points || 0);
+        }
+      }
+
+      // Load tasks
+      const tasksRes = await fetch(`${PB_URL}/api/collections/tasks/records`, { headers });
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        const pbTasks = (tasksData.items || []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          desc: t.description || '',
+          reward: t.pointValue || 0,
+          category: t.category || '任务',
+          requireAudio: t.requireAudio || false,
+          requirePhoto: t.requirePhoto || false,
+          recurrence: t.limitType || 'daily',
+          color: t.color || 'bg-blue-100',
+          icon: Sun,
+          iconColor: t.iconColor || 'text-blue-600',
+          active: t.active !== false,
+          isQuickIn: t.isQuickIn || false
+        }));
+        if (pbTasks.length > 0) {
+          setTasks(pbTasks);
+        }
+      }
+
+      // Load milestones (as submissions)
+      const milestonesRes = await fetch(`${PB_URL}/api/collections/milestones/records?sort=-occurredAt`, { headers });
+      if (milestonesRes.ok) {
+        const milestonesData = await milestonesRes.json();
+        const pbSubmissions: Submission[] = (milestonesData.items || []).map((m: any) => ({
+          id: m.id,
+          taskId: m.id,
+          childId: m.childId || '',
+          status: 'approved' as const,
+          submittedAt: m.occurredAt || m.created
+        }));
+        if (pbSubmissions.length > 0) {
+          setSubmissions(pbSubmissions);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load data from PocketBase:', error);
+    }
+  };
+
+  // Load data when user logs in
+  useEffect(() => {
+    if (currentUser) {
+      loadDataFromPocketBase();
+    }
+  }, [currentUser?.id]);
 
   const generateInvitationCode = (maxUses: number, expiryDays: number) => {
     const code = Math.random().toString(36).substr(2, 6).toUpperCase();
