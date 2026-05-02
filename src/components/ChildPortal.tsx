@@ -123,10 +123,10 @@ export default function ChildPortal() {
   } = useTasks();
 
   useEffect(() => {
-    if (childProfileId) {
+    if (childProfileId && childBadges && submissions) {
       generateMilestones();
     }
-  }, [childProfileId, childBadges.length, submissions.length]);
+  }, [childProfileId, childBadges?.length, submissions?.length]);
 
   const getBadgeIcon = (iconName: string) => {
     const icons: Record<string, any> = {
@@ -269,11 +269,11 @@ export default function ChildPortal() {
   const isWeeklyGoalMet = completedCount === 7;
 
   const handleOpenGift = () => {
-    if (!isWeeklyGoalMet || claimedGiftThisWeek) return;
-    
+    if (!isWeeklyGoalMet || claimedGiftThisWeek || !weeklyGiftConfig) return;
+
     setOpeningGift(true);
     const amount = Math.floor(Math.random() * (weeklyGiftConfig.max - weeklyGiftConfig.min + 1)) + weeklyGiftConfig.min;
-    
+
     setTimeout(() => {
       setGiftReward(amount);
       addPoints(amount, '本周达标大礼包');
