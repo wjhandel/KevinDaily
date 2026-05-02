@@ -1,42 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Sun, Dumbbell, BookOpen, Languages, GraduationCap, Gamepad2, Pizza, Ticket, Gift, Coffee } from 'lucide-react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { Task, Submission, AppNotification, ChildProfile, PointTransaction, Reward, User, InvitationCode, SystemSettings, Article, VocabularyWord } from './types';
 
 const PB_URL = import.meta.env.VITE_PB_URL || 'http://localhost:8090';
 
 const getPbToken = () => localStorage.getItem('pb_token');
-
-const INITIAL_TASKS: Task[] = [
-  { id: '1', title: '早起打卡', desc: '早晨7:30前起床并整理床铺。', reward: 10, category: '习惯', requireAudio: false, requirePhoto: true, recurrence: 'daily', color: 'bg-orange-100', icon: Sun, iconColor: 'text-orange-600', active: true, isQuickIn: true },
-  { id: '2', title: '跳绳 500 个', desc: '增强体质，提高手脚协调能力。', reward: 25, category: '运动', requireAudio: false, requirePhoto: false, recurrence: 'daily', color: 'bg-purple-100', icon: Dumbbell, iconColor: 'text-purple-600', active: true },
-  { id: '3', title: 'Anki 单词复习', desc: '高效复习今日英语生词。', reward: 30, category: '学习', requireAudio: true, requirePhoto: false, recurrence: 'daily', color: 'bg-teal-100', icon: GraduationCap, iconColor: 'text-teal-600', active: false },
-  { id: '4', title: '多邻国完成 1 单元', desc: '保持连胜！完成今日语言学习。', reward: 15, category: '学习', requireAudio: true, requirePhoto: false, recurrence: 'weekly', color: 'bg-emerald-100', icon: Languages, iconColor: 'text-emerald-600', active: true },
-  { id: '5', title: '每日自主阅读', desc: '阅读课外书籍 20 分钟并记录心得。', reward: 12, category: '学习', requireAudio: true, requirePhoto: true, recurrence: 'quick', color: 'bg-amber-100', icon: BookOpen, iconColor: 'text-amber-600', active: true, isQuickIn: true },
-  { id: '6', title: '整理书桌', desc: '保持学习环境整洁，养成好习惯。', reward: 5, category: '习惯', requireAudio: false, requirePhoto: true, recurrence: 'daily', color: 'bg-blue-100', icon: Sun, iconColor: 'text-blue-600', active: true, isQuickIn: true },
-  { id: '7', title: '喝足 8 杯水', desc: '保证每日水分摄入，身体棒棒。', reward: 5, category: '习惯', requireAudio: false, requirePhoto: false, recurrence: 'daily', color: 'bg-cyan-100', icon: Sun, iconColor: 'text-cyan-600', active: true, isQuickIn: true },
-];
-
-const INITIAL_REWARDS: Reward[] = [
-  { id: 'lego_ninja', title: '乐高幻影忍者套装', cost: 1000, icon: Gamepad2, image: 'https://images.unsplash.com/photo-1585366119957-e9730b6d0ef7?w=300&h=300&fit=crop', status: 'available', category: '玩具' },
-  { id: 'pizza_night', title: '全家比萨之夜', cost: 300, icon: Pizza, image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=300&h=300&fit=crop', status: 'available', category: '美食' },
-  { id: 'cinema_ticket', title: '周末电影票 2 张', cost: 450, icon: Ticket, image: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=300&h=300&fit=crop', status: 'available', category: '娱乐' },
-  { id: 'switch_time', title: 'Switch 加玩 1 小时', cost: 200, icon: Gamepad2, image: 'https://images.unsplash.com/photo-1578303328216-8121f1fb695d?w=300&h=300&fit=crop', status: 'available', category: '时长' },
-  { id: 'book_store', title: '书店挑选新书', cost: 500, icon: BookOpen, image: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=300&h=300&fit=crop', status: 'available', category: '教育' },
-  { id: 'toy_mall', title: '带你去逛玩具反斗城', cost: 800, icon: Gift, image: 'https://images.unsplash.com/photo-1532330393533-443990a51d10?w=300&h=300&fit=crop', status: 'available', category: '玩具' },
-];
-
-const INITIAL_CHILD_PROFILE: ChildProfile = {
-  id: 'child_1',
-  nickname: '豆豆',
-  birthDate: '2018-05-20',
-  gender: 'boy',
-  avatarUrl: 'https://images.unsplash.com/photo-1543332164-6e82f355badc?q=80&w=200&auto=format&fit=crop'
-};
-
-const INITIAL_TRANSACTIONS: PointTransaction[] = [
-  { id: 't1', type: 'earn', amount: 2000, reason: '初始奖励积分', timestamp: new Date(Date.now() - 86400000 * 7).toISOString() },
-  { id: 't2', type: 'earn', amount: 450, reason: '上周任务表现卓越', timestamp: new Date(Date.now() - 86400000 * 2).toISOString() },
-];
+const getPbUserId = () => localStorage.getItem('pb_user_id');
 
 interface TaskContextType {
   tasks: Task[];
@@ -48,9 +16,11 @@ interface TaskContextType {
   addNotification: (notification: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: (recipient: 'child' | 'parent') => void;
-  childProfile: ChildProfile;
+  childProfile: ChildProfile | null;
+  setChildProfile: (profile: ChildProfile | null) => void;
   updateChildProfile: (profile: ChildProfile) => void;
   points: number;
+  setPoints: (points: number) => void;
   addPoints: (amount: number, reason?: string, relatedId?: string) => void;
   deductPoints: (amount: number, reason?: string, relatedId?: string) => void;
   pointHistory: PointTransaction[];
@@ -59,7 +29,7 @@ interface TaskContextType {
   addReward: (reward: Reward) => void;
   updateReward: (reward: Reward) => void;
   removeReward: (id: string) => void;
-  
+
   // Auth & System
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
@@ -81,132 +51,228 @@ interface TaskContextType {
 
   weeklyGiftConfig: { min: number; max: number };
   setWeeklyGiftConfig: React.Dispatch<React.SetStateAction<{ min: number; max: number }>>;
+
+  badges: any[];
+  setBadges: React.Dispatch<React.SetStateAction<any[]>>;
+  childBadges: any[];
+  setChildBadges: React.Dispatch<React.SetStateAction<any[]>>;
+  refreshData: () => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
-const INITIAL_SUBMISSIONS: Submission[] = [
-  { id: 's1', taskId: '1', childId: 'child_1', status: 'approved', submittedAt: new Date().toISOString() },
-  { id: 's2', taskId: '2', childId: 'child_1', status: 'approved', submittedAt: new Date(Date.now() - 86400000).toISOString() },
-  { id: 's3', taskId: '3', childId: 'child_1', status: 'approved', submittedAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-];
-
 export function TaskProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [submissions, setSubmissions] = useState<Submission[]>(INITIAL_SUBMISSIONS);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [childProfile, setChildProfile] = useState<ChildProfile>(INITIAL_CHILD_PROFILE);
-  const [points, setPoints] = useState<number>(2450);
-  const [pointHistory, setPointHistory] = useState<PointTransaction[]>(INITIAL_TRANSACTIONS);
-  const [rewards, setRewards] = useState<Reward[]>(INITIAL_REWARDS);
+  const [childProfile, setChildProfile] = useState<ChildProfile | null>(null);
+  const [points, setPoints] = useState<number>(0);
+  const [pointHistory, setPointHistory] = useState<PointTransaction[]>([]);
+  const [rewards, setRewards] = useState<Reward[]>([]);
   const [weeklyGiftConfig, setWeeklyGiftConfig] = useState({ min: 10, max: 100 });
-
-  // Auth & System State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [invitationCodes, setInvitationCodes] = useState<InvitationCode[]>([]);
-  const [articles, setArticles] = useState<Article[]>([
-    {
-      id: 'a1',
-      title: 'A Day at the Park',
-      contentEn: 'Today, my little puppy and I went to the colorful park. He loves running on the green grass and catching butterflies.',
-      contentZh: '今天，我和我的小狗去了五彩缤纷的公园。它喜欢在绿草地上奔跑，捕捉蝴蝶。',
-      imageUrl: 'https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?q=80&w=800&auto=format&fit=crop',
-      publishedAt: new Date().toISOString()
-    },
-    {
-      id: 'a2',
-      title: 'Never Give Up',
-      contentEn: 'Failure is not terrible. Smile when you don’t succeed. Stand up and try once more. Every failure is a new lesson. You grow when you don’t give up. Tomorrow will be better.',
-      contentZh: '失败并不可怕。当你不成功时微笑。站起来再试一次。每一次失败都是新的一课。当你不放弃时，你就会成长。明天会更好。',
-      imageUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=800&auto=format&fit=crop',
-      publishedAt: new Date().toISOString()
-    }
-  ]);
+  const [articles, setArticles] = useState<Article[]>([]);
   const [vocabulary, setVocabulary] = useState<VocabularyWord[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     isRegistrationOpen: true,
     defaultPointsForNewChild: 100
   });
+  const [badges, setBadges] = useState<any[]>([]);
+  const [childBadges, setChildBadges] = useState<any[]>([]);
 
-  const loadDataFromPocketBase = async () => {
+  const pbFetch = useCallback(async (url: string, options: RequestInit = {}) => {
+    const token = getPbToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {}),
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${PB_URL}${url}`, { ...options, headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: `Error: ${res.status}` }));
+      throw new Error(err.message || `API error: ${res.status}`);
+    }
+    return res.json();
+  }, []);
+
+  const refreshData = useCallback(async () => {
     const token = getPbToken();
     if (!token) return;
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-
     try {
-      // Load child profiles
-      const childRes = await fetch(`${PB_URL}/api/collections/child_profiles/records`, { headers });
-      if (childRes.ok) {
-        const childData = await childRes.json();
-        const items = childData.items || [];
-        if (items.length > 0) {
-          const profile = items[0];
-          setChildProfile({
-            id: profile.id,
-            nickname: profile.nickname || profile.name || '孩子',
-            birthDate: profile.birthDate || '',
-            gender: profile.gender || 'boy',
-            avatarUrl: profile.avatar ? `${PB_URL}/api/files/child_profiles/${profile.id}/${profile.avatar}` : ''
-          });
-          setPoints(profile.points || 0);
-        }
-      }
+      // Load child profiles for current user
+      const userId = getPbUserId();
+      const childRes = await pbFetch('/api/collections/child_profiles/records');
+      const childItems = (childRes.items || []).filter((c: any) => c.parent === userId || c.user === userId);
+      if (childItems.length > 0) {
+        const profile = childItems[0];
+        setChildProfile({
+          id: profile.id,
+          nickname: profile.nickname || profile.name || '孩子',
+          birthDate: profile.birthDate || '',
+          gender: profile.gender || 'boy',
+          avatarUrl: profile.avatarUrl || ''
+        });
+        setPoints(profile.points || 0);
 
-      // Load tasks
-      const tasksRes = await fetch(`${PB_URL}/api/collections/tasks/records`, { headers });
-      if (tasksRes.ok) {
-        const tasksData = await tasksRes.json();
-        const pbTasks = (tasksData.items || []).map((t: any) => ({
+        // Load tasks for this child
+        const tasksRes = await pbFetch('/api/collections/tasks/records');
+        const childTasks = (tasksRes.items || []).filter((t: any) => t.childId === profile.id || t.parent === userId);
+        setTasks(childTasks.map((t: any) => ({
           id: t.id,
           title: t.title,
-          desc: t.description || '',
-          reward: t.pointValue || 0,
+          desc: t.desc || t.description || '',
+          reward: t.reward || t.pointValue || 0,
           category: t.category || '任务',
           requireAudio: t.requireAudio || false,
           requirePhoto: t.requirePhoto || false,
-          recurrence: t.limitType || 'daily',
+          recurrence: t.recurrence || t.limitType || 'daily',
           color: t.color || 'bg-blue-100',
-          icon: Sun,
           iconColor: t.iconColor || 'text-blue-600',
           active: t.active !== false,
           isQuickIn: t.isQuickIn || false
-        }));
-        if (pbTasks.length > 0) {
-          setTasks(pbTasks);
-        }
-      }
+        })));
 
-      // Load milestones (as submissions)
-      const milestonesRes = await fetch(`${PB_URL}/api/collections/milestones/records?sort=-occurredAt`, { headers });
-      if (milestonesRes.ok) {
-        const milestonesData = await milestonesRes.json();
-        const pbSubmissions: Submission[] = (milestonesData.items || []).map((m: any) => ({
+        // Load milestones (submissions)
+        const milestonesRes = await pbFetch('/api/collections/milestones/records?sort=-occurredAt');
+        const childMilestones = (milestonesRes.items || []).filter((m: any) => m.childId === profile.id);
+        setSubmissions(childMilestones.map((m: any) => ({
           id: m.id,
-          taskId: m.id,
-          childId: m.childId || '',
+          taskId: m.taskId || m.id,
+          childId: m.childId || profile.id,
           status: 'approved' as const,
           submittedAt: m.occurredAt || m.created
-        }));
-        if (pbSubmissions.length > 0) {
-          setSubmissions(pbSubmissions);
-        }
+        })));
+
+        // Load child_badges
+        const childBadgesRes = await pbFetch('/api/collections/child_badges/records');
+        const myChildBadges = (childBadgesRes.items || []).filter((cb: any) => cb.childId === profile.id);
+        setChildBadges(myChildBadges);
       }
+
+      // Load badges
+      const badgesRes = await pbFetch('/api/collections/badges/records');
+      setBadges(badgesRes.items || []);
+
+      // Load rewards
+      const rewardsRes = await pbFetch('/api/collections/rewards/records');
+      setRewards((rewardsRes.items || []).map((r: any) => ({
+        id: r.id,
+        title: r.title || r.name || '',
+        desc: r.desc || r.description || '',
+        cost: r.cost || r.pointsCost || 0,
+        iconName: r.iconName || 'gift',
+        image: r.image || '',
+        category: r.category || '奖励',
+        status: r.status || 'available',
+        stock: r.stock || 999,
+        active: r.status !== 'disabled'
+      })));
+
     } catch (error) {
       console.error('Failed to load data from PocketBase:', error);
     }
-  };
+  }, [pbFetch]);
 
   // Load data when user logs in
   useEffect(() => {
     if (currentUser) {
-      loadDataFromPocketBase();
+      refreshData();
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, refreshData]);
+
+  const updateChildProfile = async (profile: ChildProfile) => {
+    setChildProfile(profile);
+    try {
+      await pbFetch(`/api/collections/child_profiles/records/${profile.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          nickname: profile.nickname,
+          birthDate: profile.birthDate,
+          gender: profile.gender,
+          avatarUrl: profile.avatarUrl
+        })
+      });
+    } catch (error) {
+      console.error('Failed to update child profile:', error);
+    }
+  };
+
+  const addPoints = async (amount: number, reason: string = '任务奖励', relatedId?: string) => {
+    setPoints(prev => prev + amount);
+    setPointHistory(prev => [{
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'earn',
+      amount,
+      reason,
+      timestamp: new Date().toISOString(),
+      relatedId
+    }, ...prev]);
+
+    // Sync to PocketBase
+    if (childProfile) {
+      try {
+        await pbFetch(`/api/collections/child_profiles/records/${childProfile.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ points: points + amount })
+        });
+      } catch (error) {
+        console.error('Failed to sync points to PocketBase:', error);
+      }
+    }
+  };
+
+  const deductPoints = async (amount: number, reason: string = '兑换奖励', relatedId?: string) => {
+    setPoints(prev => Math.max(0, prev - amount));
+    setPointHistory(prev => [{
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'spend',
+      amount,
+      reason,
+      timestamp: new Date().toISOString(),
+      relatedId
+    }, ...prev]);
+
+    // Sync to PocketBase
+    if (childProfile) {
+      try {
+        await pbFetch(`/api/collections/child_profiles/records/${childProfile.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ points: Math.max(0, points - amount) })
+        });
+      } catch (error) {
+        console.error('Failed to sync points to PocketBase:', error);
+      }
+    }
+  };
+
+  const addSubmission = async (submission: Submission) => {
+    setSubmissions((prev) => [...prev, submission]);
+
+    // Sync to PocketBase - create milestone
+    try {
+      await pbFetch('/api/collections/milestones/records', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: submission.taskId,
+          childId: submission.childId,
+          occurredAt: submission.submittedAt
+        })
+      });
+    } catch (error) {
+      console.error('Failed to sync submission to PocketBase:', error);
+    }
+  };
+
+  const updateSubmissionStatus = async (id: string, status: 'approved' | 'rejected', extraData?: { rating?: number, comment?: string }) => {
+    setSubmissions((prev) =>
+      prev.map(sub => sub.id === id ? { ...sub, status, ...extraData } : sub)
+    );
+  };
 
   const generateInvitationCode = (maxUses: number, expiryDays: number) => {
     const code = Math.random().toString(36).substr(2, 6).toUpperCase();
@@ -229,7 +295,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const validateInvitationCode = (code: string) => {
     const found = invitationCodes.find(c => c.code === code);
     if (!found) return false;
-    
+
     const isExpired = new Date(found.expiresAt) < new Date();
     const isMaxed = found.usedCount >= found.maxUses;
 
@@ -255,8 +321,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       if (!validateInvitationCode(invitationCode)) {
         return { success: false, error: '邀请码无效或已过期' };
       }
-      
-      setInvitationCodes(prev => prev.map(c => 
+
+      setInvitationCodes(prev => prev.map(c =>
         c.code === invitationCode ? { ...c, usedCount: c.usedCount + 1 } : c
       ));
     }
@@ -299,34 +365,6 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     setVocabulary(prev => prev.filter(v => v.id !== id));
   };
 
-  const addPoints = (amount: number, reason: string = '任务奖励', relatedId?: string) => {
-    setPoints(prev => prev + amount);
-    setPointHistory(prev => [{
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'earn',
-      amount,
-      reason,
-      timestamp: new Date().toISOString(),
-      relatedId
-    }, ...prev]);
-  };
-
-  const deductPoints = (amount: number, reason: string = '兑换奖励', relatedId?: string) => {
-    setPoints(prev => Math.max(0, prev - amount));
-    setPointHistory(prev => [{
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'spend',
-      amount,
-      reason,
-      timestamp: new Date().toISOString(),
-      relatedId
-    }, ...prev]);
-  };
-
-  const updateChildProfile = (profile: ChildProfile) => {
-    setChildProfile(profile);
-  };
-
   const addNotification = (notification: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => {
     setNotifications(prev => [{
       ...notification,
@@ -334,16 +372,6 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       timestamp: new Date().toISOString(),
       read: false
     }, ...prev]);
-  };
-
-  const addSubmission = (submission: Submission) => {
-    setSubmissions((prev) => [...prev, submission]);
-  };
-
-  const updateSubmissionStatus = (id: string, status: 'approved' | 'rejected', extraData?: { rating?: number, comment?: string }) => {
-    setSubmissions((prev) => 
-      prev.map(sub => sub.id === id ? { ...sub, status, ...extraData } : sub)
-    );
   };
 
   const markNotificationRead = (id: string) => {
@@ -367,15 +395,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <TaskContext.Provider value={{ 
+    <TaskContext.Provider value={{
       tasks, setTasks, submissions, addSubmission, updateSubmissionStatus,
       notifications, addNotification, markNotificationRead, markAllNotificationsRead,
-      childProfile, updateChildProfile, points, addPoints, deductPoints, pointHistory,
+      childProfile, setChildProfile, updateChildProfile, points, setPoints, addPoints, deductPoints, pointHistory,
       rewards, setRewards, addReward, updateReward, removeReward, weeklyGiftConfig, setWeeklyGiftConfig,
       currentUser, setCurrentUser, invitationCodes, generateInvitationCode, validateInvitationCode,
       systemSettings, updateSystemSettings, users, registerUser,
       articles, addArticle, removeArticle,
-      vocabulary, addVocabulary, removeVocabulary
+      vocabulary, addVocabulary, removeVocabulary,
+      badges, setBadges, childBadges, setChildBadges,
+      refreshData
     }}>
       {children}
     </TaskContext.Provider>
@@ -389,4 +419,3 @@ export function useTasks() {
   }
   return context;
 }
-
